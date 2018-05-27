@@ -1,0 +1,111 @@
+name:
+  emacs-module
+version:
+  0.1.0.0
+category: Foreign, Foreign binding
+
+synopsis:
+  Utilities to write Emacs dynamic modules
+
+description:
+  This package provides a full set of bindings to emacs-module.h that
+  allows to develop Emacs modules in Haskell.
+
+license:
+  BSD3
+license-file:
+  LICENSE
+author:
+  Sergey Vinokurov
+maintainer:
+  Sergey Vinokurov <serg.foo@gmail.com>
+stability: stable
+tested-with:
+    GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.2
+extra-source-files:
+  cbits/emacs-module.h
+
+cabal-version:
+  >= 1.16
+build-type:
+  Simple
+
+homepage: https://github.com/sergv/emacs-module
+
+source-repository head
+    type: git
+    location: https://github.com/sergv/emacs-module.git
+
+
+flag assertions
+  description:
+    Enable runtime assertions
+  default:
+    False
+  manual:
+    True
+
+library
+  if flag(assertions)
+    cpp-options: -DASSERTIONS
+  exposed-modules:
+    Data.Emacs.Module.Args
+    Data.Emacs.Module.Env
+    Data.Emacs.Module.Env.Functions
+    Data.Emacs.Module.NonNullPtr
+    Data.Emacs.Module.Runtime
+    Data.Emacs.Module.SymbolName
+    Data.Emacs.Module.SymbolName.TH
+    Data.Emacs.Module.Value
+    Emacs.Module
+    Emacs.Module.Assert
+    Emacs.Module.Errors
+    Emacs.Module.Functions
+    Emacs.Module.Monad
+    Emacs.Module.Monad.Class
+  other-modules:
+    Data.Emacs.Module.Env.Internal
+    Data.Emacs.Module.Env.Raw
+    Data.Emacs.Module.Env.Raw.TH
+    Data.Emacs.Module.SymbolName.Internal
+    Data.Emacs.Module.NonNullPtr.Internal
+  hs-source-dirs:
+    src
+  build-depends:
+    base >=4.7 && < 5,
+    bytestring,
+    exceptions,
+    mtl,
+    prettyprinter,
+    safe-exceptions-checked,
+    text,
+    template-haskell,
+    transformers-base,
+    void
+  includes:
+    emacs-module.h
+  install-includes:
+    emacs-module.h
+  include-dirs:
+    cbits
+  build-tools:
+    hsc2hs
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Wall
+    -fwarn-name-shadowing
+    -fno-warn-type-defaults
+  if impl(ghc >= 8.0)
+    ghc-options:
+      -Wcompat
+      -Whi-shadowing
+      -Widentities
+      -Wincomplete-record-updates
+      -Wincomplete-uni-patterns
+      -Wmissing-exported-signatures
+  if impl(ghc >= 8.2)
+    ghc-options:
+      -Wcpp-undef
+      -Wmissing-home-modules
+      -Wunbanged-strict-patterns

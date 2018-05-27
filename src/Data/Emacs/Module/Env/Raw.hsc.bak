@@ -1,0 +1,413 @@
+----------------------------------------------------------------------------
+-- |
+-- Module      :  Data.Emacs.Env.Raw
+-- Copyright   :  (c) Sergey Vinokurov 2018
+-- License     :  BSD3-style (see LICENSE)
+--
+-- Maintainer  :  serg.foo@gmail.com
+-- Created     :  19 May 2018
+-- Stability   :
+-- Portability :
+--
+-- Low-level (hopefully) low-overhead wrappers around @struct emacs_env@.
+----------------------------------------------------------------------------
+
+{-# LANGUAGE FlexibleContexts         #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ScopedTypeVariables      #-}
+{-# LANGUAGE TemplateHaskell          #-}
+
+-- {-# OPTIONS_HADDOCK not-home #-}
+
+module Data.Emacs.Env.Raw
+  ( EnumFuncallExit(..)
+  , UserPtrFinaliserType
+  , UserPtrFinaliser
+  , isValidEnv
+
+  , makeGlobalRef
+  , freeGlobalRef
+  , nonLocalExitCheck
+  , nonLocalExitGet
+  , nonLocalExitSignal
+  , nonLocalExitThrow
+
+  , variadicFunctionArgs
+  , makeFunction
+
+  , funcall
+  , intern
+  , typeOf
+  , isNotNil
+  , eq
+  , extractInteger
+  , makeInteger
+  , extractFloat
+  , makeFloat
+  , copyStringContents
+  , makeString
+  , makeUserPtr
+  , getUserPtr
+  , setUserPtr
+  , getUserFinaliser
+  , setUserFinaliser
+  , vecGet
+  , vecSet
+  , vecSize
+  ) where
+
+import Control.Monad.Base
+
+-- import qualified Data.ByteString as BS
+import Data.Coerce
+import Foreign
+import Foreign.C
+
+import Data.Emacs.Env.Internal as Env
+import Data.Emacs.Env.Raw.TH
+import qualified Data.Emacs.Value as Emacs
+import Data.NonNullPtr
+
+import Data.NonNullPtr.Internal
+
+#include <emacs-module.h>
+
+
+type MakeGlobalRefType = Env -> Emacs.Value -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_global_ref
+  :: FunPtr MakeGlobalRefType -> MakeGlobalRefType
+
+{-# INLINE makeGlobalRef #-}
+makeGlobalRef
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m Emacs.Value
+makeGlobalRef env x = liftBase $ do
+  (funcPtr :: FunPtr MakeGlobalRefType) <- (#peek emacs_env, make_global_ref) (Env.toPtr env)
+  emacs_make_global_ref funcPtr env x
+
+
+type FreeGlobalRefType = Env -> Emacs.Value -> IO ()
+
+foreign import ccall unsafe "dynamic" emacs_free_global_ref
+  :: FunPtr FreeGlobalRefType -> FreeGlobalRefType
+
+{-# INLINE freeGlobalRef #-}
+freeGlobalRef
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m ()
+freeGlobalRef env x = liftBase $ do
+  (funcPtr :: FunPtr FreeGlobalRefType) <- (#peek emacs_env, free_global_ref) (Env.toPtr env)
+  emacs_free_global_ref funcPtr env x
+
+
+newtype EnumFuncallExit = EnumFuncallExit { unEnumFuncallExit :: CInt }
+
+type NonLocalExitCheckType = Env -> IO EnumFuncallExit
+
+foreign import ccall unsafe "dynamic" emacs_non_local_exit_check
+  :: FunPtr NonLocalExitCheckType -> NonLocalExitCheckType
+
+{-# INLINE nonLocalExitCheck #-}
+nonLocalExitCheck
+  :: MonadBase IO m
+  => Env
+  -> m EnumFuncallExit
+nonLocalExitCheck env = liftBase $ do
+  (funcPtr :: FunPtr NonLocalExitCheckType) <- (#peek emacs_env, non_local_exit_check) (Env.toPtr env)
+  emacs_non_local_exit_check funcPtr env
+
+
+type NonLocalExitClear = Env -> IO ()
+
+foreign import ccall unsafe "dynamic" emacs_non_local_exit_clear
+  :: FunPtr NonLocalExitClear -> NonLocalExitClear
+
+
+
+type NonLocalExitGet =
+  Env -> Ptr Emacs.Value -> Ptr Emacs.Value -> IO EnumFuncallExit
+
+foreign import ccall unsafe "dynamic" emacs_non_local_exit_get
+  :: FunPtr NonLocalExitGet -> NonLocalExitGet
+
+{-# INLINE nonLocalExitGet #-}
+nonLocalExitGet
+  :: MonadBase IO m
+  => Env
+  -> Ptr Emacs.Value -- ^ Symbol output
+  -> Ptr Emacs.Value -- ^ Data output
+  -> m EnumFuncallExit
+nonLocalExitGet env symbolOut dataOut = liftBase $ do
+  (funcPtr :: FunPtr NonLocalExitGet) <- (#peek emacs_env, non_local_exit_get) (Env.toPtr env)
+  emacs_non_local_exit_get funcPtr env symbolOut dataOut
+
+-- | Type of the emacs_env.make_function field.
+type MakeFunctionType a =
+     Env
+  -> CPtrdiff
+  -> CPtrdiff
+  -> FunPtr (RawFunctionType a)
+  -> CString
+  -> Ptr a
+  -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_function
+  :: FunPtr (MakeFunctionType a) -> MakeFunctionType a
+
+{-# INLINE makeFunction #-}
+makeFunction
+  :: forall m a. MonadBase IO m
+  => Env
+  -> CPtrdiff      -- ^ Minimum arity
+  -> CPtrdiff      -- ^ Maximum arity
+  -> RawFunction a -- ^ Implementation
+  -> CString       -- ^ Documentation
+  -> Ptr a         -- ^ Extra data
+  -> m Emacs.Value
+makeFunction env minArity maxArity implementation doc extra = liftBase $ do
+  (funcPtr :: FunPtr (MakeFunctionType a)) <- (#peek emacs_env, make_function) (Env.toPtr env)
+  emacs_make_function funcPtr env minArity maxArity (unFunction implementation) doc extra
+
+
+type FuncallType =
+  Env -> Emacs.Value -> CPtrdiff -> Ptr Emacs.Value -> IO Emacs.Value
+
+-- Must make it safe because it may call back into us.
+foreign import ccall safe "dynamic" emacs_funcall
+  :: FunPtr FuncallType -> FuncallType
+
+{-# INLINE funcall #-}
+funcall
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value     -- ^ Function
+  -> CPtrdiff        -- ^ Number of arguments
+  -> Ptr Emacs.Value -- ^ Actual arguments
+  -> m Emacs.Value
+funcall env func nargs args = liftBase $ do
+  (funcPtr :: FunPtr FuncallType) <- (#peek emacs_env, funcall) (Env.toPtr env)
+  emacs_funcall funcPtr env func nargs args
+
+
+type InternType = Env -> CString -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_intern
+  :: FunPtr InternType -> InternType
+
+{-# INLINE intern #-}
+intern
+  :: MonadBase IO m
+  => Env
+  -> CString
+  -> m Emacs.Value
+intern env sym = liftBase $ do
+  (funcPtr :: FunPtr InternType) <- (#peek emacs_env, intern) (Env.toPtr env)
+  emacs_intern funcPtr env sym
+
+
+type TypeOfType = Env -> Emacs.Value -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_type_of
+  :: FunPtr TypeOfType -> TypeOfType
+
+{-# INLINE typeOf #-}
+typeOf
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m Emacs.Value
+typeOf env x = liftBase $ do
+  (funcPtr :: FunPtr TypeOfType) <- (#peek emacs_env, type_of) (Env.toPtr env)
+  emacs_type_of funcPtr env x
+
+
+type IsNotNilType = Env -> Emacs.Value -> IO CBool
+
+foreign import ccall unsafe "dynamic" emacs_is_not_nil
+  :: FunPtr IsNotNilType -> IsNotNilType
+
+{-# INLINE isNotNil #-}
+isNotNil
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m CBool
+isNotNil env x = liftBase $ do
+  (funcPtr :: FunPtr IsNotNilType) <- (#peek emacs_env, is_not_nil) (Env.toPtr env)
+  emacs_is_not_nil funcPtr env x
+
+
+type EqType = Env -> Emacs.Value -> Emacs.Value -> IO CBool
+
+foreign import ccall unsafe "dynamic" emacs_eq
+  :: FunPtr EqType -> EqType
+
+{-# INLINE eq #-}
+eq
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> Emacs.Value
+  -> m CBool
+eq env x y = liftBase $ do
+  (funcPtr :: FunPtr EqType) <- (#peek emacs_env, eq) (Env.toPtr env)
+  emacs_eq funcPtr env x y
+
+
+type ExtractIntegerType = Env -> Emacs.Value -> IO CIntMax
+
+foreign import ccall unsafe "dynamic" emacs_extract_integer
+  :: FunPtr ExtractIntegerType -> ExtractIntegerType
+
+{-# INLINE extractInteger #-}
+extractInteger
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m CIntMax
+extractInteger env x = liftBase $ do
+  (funcPtr :: FunPtr ExtractIntegerType) <- (#peek emacs_env, extract_integer) (Env.toPtr env)
+  emacs_extract_integer funcPtr env x
+
+type MakeIntegerType = Env -> CIntMax -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_integer
+  :: FunPtr MakeIntegerType -> MakeIntegerType
+
+{-# INLINE makeInteger #-}
+makeInteger
+  :: MonadBase IO m
+  => Env
+  -> CIntMax
+  -> m Emacs.Value
+makeInteger env x = liftBase $ do
+  (funcPtr :: FunPtr MakeIntegerType) <- (#peek emacs_env, make_integer) (Env.toPtr env)
+  emacs_make_integer funcPtr env x
+
+
+type ExtractFloatType = Env -> Emacs.Value -> IO CDouble
+
+foreign import ccall unsafe "dynamic" emacs_extract_float
+  :: FunPtr ExtractFloatType -> ExtractFloatType
+
+{-# INLINE extractFloat #-}
+extractFloat
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value
+  -> m CDouble
+extractFloat env x = liftBase $ do
+  (funcPtr :: FunPtr ExtractFloatType) <- (#peek emacs_env, extract_float) (Env.toPtr env)
+  emacs_extract_float funcPtr env x
+
+type MakeFloatType = Env -> CDouble -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_float
+  :: FunPtr MakeFloatType -> MakeFloatType
+
+{-# INLINE makeFloat #-}
+makeFloat
+  :: MonadBase IO m
+  => Env
+  -> CDouble
+  -> m Emacs.Value
+makeFloat env x = liftBase $ do
+  (funcPtr :: FunPtr MakeFloatType) <- (#peek emacs_env, make_integer) (Env.toPtr env)
+  emacs_make_float funcPtr env x
+
+
+type CopyStringContentsType =
+  Env -> Emacs.Value -> CString -> Ptr CPtrdiff -> IO CBool
+
+foreign import ccall unsafe "dynamic" emacs_copy_string_contents
+  :: FunPtr CopyStringContentsType -> CopyStringContentsType
+
+-- |  Copy the content of the Lisp string VALUE to BUFFER as an utf8
+-- null-terminated string.
+--
+-- SIZE must point to the total size of the buffer.  If BUFFER is
+-- NULL or if SIZE is not big enough, write the required buffer size
+-- to SIZE and return true.
+--
+-- Note that SIZE must include the last null byte (e.g. "abc" needs
+-- a buffer of size 4).
+--
+-- Return true if the string was successfully copied.
+{-# INLINE copyStringContents #-}
+copyStringContents
+  :: MonadBase IO m
+  => Env
+  -> Emacs.Value -- ^ Strict to extract contents from.
+  -> CString     -- ^ Destination, may be NULL.
+  -> Ptr CPtrdiff
+  -> m CBool
+copyStringContents env str dest destSize = liftBase $ do
+  (funcPtr :: FunPtr CopyStringContentsType) <- (#peek emacs_env, copy_string_contents) (Env.toPtr env)
+  emacs_copy_string_contents funcPtr env str dest destSize
+
+
+-- Create a Lisp string from a utf8 encoded string.
+type MakeStringType = Env -> CString -> CPtrdiff -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_string
+  :: FunPtr MakeStringType -> MakeStringType
+
+{-# INLINE makeString #-}
+makeString
+  :: MonadBase IO m
+  => Env
+  -> CString
+  -> CPtrdiff
+  -> m Emacs.Value
+makeString env str len = liftBase $ do
+  (funcPtr :: FunPtr MakeStringType) <- (#peek emacs_env, make_string) (Env.toPtr env)
+  emacs_make_string funcPtr env str len
+
+
+type UserPtrFinaliserType a = NonNullPtr a -> IO ()
+type UserPtrFinaliser a = FunPtr (UserPtrFinaliserType a)
+
+
+type MakeUserPtrType a =
+  Env -> UserPtrFinaliser a -> NonNullPtr a -> IO Emacs.Value
+
+foreign import ccall unsafe "dynamic" emacs_make_user_ptr
+  :: FunPtr (MakeUserPtrType a) -> MakeUserPtrType a
+
+{-# INLINE makeUserPtr #-}
+makeUserPtr
+  :: forall m a. MonadBase IO m
+  => Env
+  -> UserPtrFinaliser a
+  -> NonNullPtr a
+  -> m Emacs.Value
+makeUserPtr env fin x = liftBase $ do
+  (funcPtr :: FunPtr (MakeUserPtrType a)) <- (#peek emacs_env, make_user_ptr) (Env.toPtr env)
+  emacs_make_user_ptr funcPtr env fin x
+
+type GetUserPtrType a = Env -> Emacs.Value -> IO (NonNullPtr a)
+
+
+type SetUserPtrType a = Env -> Emacs.Value -> NonNullPtr a -> IO ()
+
+
+type GetUserFinaliserType a = Env -> Emacs.Value -> IO (UserPtrFinaliser a)
+
+
+type SetUserFinaliserType a = Env -> Emacs.Value -> UserPtrFinaliser a -> IO ()
+
+
+type VecGetType = Env -> Emacs.Value -> CPtrdiff -> IO Emacs.Value
+
+
+type VecSetType = Env -> Emacs.Value -> CPtrdiff -> Emacs.Value -> IO ()
+
+
+type VecSize = Env -> Emacs.Value -> IO CPtrdiff
+
+

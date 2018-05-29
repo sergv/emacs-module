@@ -1,0 +1,5 @@
+packages:
+  ../emacs-module.cabal
+  emacs-module-test.cabal
+
+library-profiling: False

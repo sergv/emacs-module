@@ -12,7 +12,7 @@ maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 
 cabal-version:
-  >= 1.16
+  >= 2.0
 build-type:
   Simple
 

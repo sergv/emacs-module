@@ -5,6 +5,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ForeignFunctionInterface   #-}
@@ -18,7 +19,9 @@ module Emacs.TestsInit () where
 import Control.Monad.IO.Class
 
 import Foreign
+#if MIN_VERSION_base(4,10,0)
 import Foreign.C
+#endif
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)
@@ -27,13 +30,26 @@ import Data.Emacs.Module.SymbolName.TH
 import Emacs.Module
 import Emacs.Module.Assert
 
+#if MIN_VERSION_base(4,10,0)
 foreign export ccall initialise :: Ptr Runtime -> IO CBool
 
 true, false :: CBool
 true  = CBool 1
 false = CBool 0
 
+#else
+foreign export ccall initialise :: Ptr Runtime -> IO Int
+
+true, false :: Int
+true  = 1
+false = 0
+#endif
+
+#if MIN_VERSION_base(4,10,0)
 initialise :: WithCallStack => Ptr Runtime -> IO CBool
+#else
+initialise :: WithCallStack => Ptr Runtime -> IO Int
+#endif
 initialise runtime = do
   runtime' <- Runtime.validateRuntime runtime
   case runtime' of

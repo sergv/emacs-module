@@ -21,6 +21,7 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Emacs.Module.Monad
@@ -31,8 +32,10 @@ module Emacs.Module.Monad
 import qualified Control.Exception as Exception
 import Control.Exception.Safe.Checked (MonadThrow, Throws)
 import qualified Control.Exception.Safe.Checked as Checked
+import Control.Monad.Base
 import Control.Monad.Except
 import Control.Monad.Reader
+import Control.Monad.Trans.Control
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
@@ -67,7 +70,14 @@ data Environment = Environment
   }
 
 newtype EmacsM a = EmacsM { unEmacsM :: ReaderT Environment IO a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadThrow)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadBase IO)
+
+instance MonadBaseControl IO EmacsM where
+  type StM EmacsM a = StM (ReaderT Environment IO) a
+  {-# INLINE liftBaseWith #-}
+  liftBaseWith f = EmacsM (liftBaseWith (\runInBase -> f (runInBase . unEmacsM)))
+  {-# INLINE restoreM #-}
+  restoreM x = EmacsM (restoreM x)
 
 runEmacsM :: Env -> EmacsM a -> IO a
 runEmacsM env (EmacsM action) =

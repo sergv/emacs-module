@@ -75,6 +75,7 @@ library
     base >=4.7 && < 5,
     bytestring,
     exceptions,
+    monad-control,
     mtl,
     prettyprinter,
     safe-exceptions-checked,

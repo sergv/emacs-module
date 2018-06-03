@@ -17,12 +17,22 @@
 module Emacs.Module.Functions
   ( bindFunction
   , makeFunction
+  , provide
   , extractInt
   , makeInt
   , extractText
   , makeText
+    -- * Vectors
   , extractVector
   , extractVectorWith
+  , makeVector
+    -- * Lists
+  , cons
+  , car
+  , cdr
+  , nil
+  , setcar
+  , setcdr
   ) where
 
 import Control.Monad.Except
@@ -64,6 +74,17 @@ makeFunction
 makeFunction f doc =
   makeFunctionExtra (\env _extraPtr -> f env) doc nullPtr
 
+{-# INLINE provide #-}
+-- | Signal to Emacs that certain feature is being provided. Returns provided
+-- symbol.
+provide
+  :: (WithCallStack, MonadEmacs m)
+  => SymbolName -- ^ Feature to provide
+  -> m Emacs.Value
+provide sym = do
+  sym' <- intern sym
+  funcall [esym|provide|] [sym']
+
 {-# INLINE extractInt #-}
 -- | Try to obtain an 'Int' from Emacs value.
 --
@@ -102,6 +123,7 @@ extractVector xs = do
   n <- vecSize xs
   traverse (vecGet xs) [0..n - 1]
 
+{-# INLINABLE extractVectorWith #-}
 -- | Get all elements form an Emacs vector using specific function to
 -- convert elements.
 extractVectorWith
@@ -112,3 +134,59 @@ extractVectorWith
 extractVectorWith f xs = do
   n <- vecSize xs
   traverse (f <=< vecGet xs) [0..n - 1]
+
+{-# INLINE makeVector #-}
+-- | Create an Emacs vector.
+makeVector
+  :: (WithCallStack, MonadEmacs m)
+  => [Emacs.Value]
+  -> m Emacs.Value
+makeVector = funcall [esym|vector|]
+
+{-# INLINE cons #-}
+-- | Make a cons pair out of two values.
+cons
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value -- ^ car
+  -> Emacs.Value -- ^ cdr
+  -> m Emacs.Value
+cons x y = funcall [esym|cons|] [x, y]
+
+{-# INLINE car #-}
+-- | Take first element of a pair.
+car
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value
+  -> m Emacs.Value
+car = funcall [esym|car|] . (: [])
+
+{-# INLINE cdr #-}
+-- | Take second element of a pair.
+cdr
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value
+  -> m Emacs.Value
+cdr = funcall [esym|cdr|] . (: [])
+
+{-# INLINE nil #-}
+-- | A @nil@ symbol aka empty list.
+nil
+  :: (WithCallStack, MonadEmacs m)
+  => m Emacs.Value
+nil = intern [esym|nil|]
+
+{-# INLINE setcar #-}
+setcar
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value -- ^ Cons pair
+  -> Emacs.Value -- ^ New value
+  -> m Emacs.Value
+setcar x y = funcall [esym|setcar|] [x, y]
+
+{-# INLINE setcdr #-}
+setcdr
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value -- ^ Cons pair
+  -> Emacs.Value -- ^ New value
+  -> m Emacs.Value
+setcdr x y = funcall [esym|setcdr|] [x, y]

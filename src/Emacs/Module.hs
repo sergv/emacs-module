@@ -25,17 +25,10 @@ module Emacs.Module
   , EmacsM
   , runEmacsM
 
-    -- * Functions
-  , bindFunction
-  , makeFunction
-  , extractInt
-  , makeInt
-  , extractText
-  , makeText
-  , extractVector
-  , extractVectorWith
-
     -- * Reexports
+  , module Emacs.Module.Functions
+
+    -- * Third-party reexports
   , MonadThrow
   , Throws
   ) where

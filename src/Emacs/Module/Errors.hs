@@ -191,7 +191,7 @@ reportAnyErrorToEmacs env e = do
 -- @initialise@ entry point into an Emacs module.
 reportAllErrorsToEmacs
   :: Env
-  -> IO a --
+  -> IO a -- ^ Result to return on error.
   -> ((Throws EmacsInternalError, Throws EmacsError, Throws UserError, Throws EmacsThrow) => IO a)
   -> IO a
 reportAllErrorsToEmacs env resultOnErr x =

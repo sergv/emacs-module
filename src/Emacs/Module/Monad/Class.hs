@@ -31,11 +31,13 @@ import qualified Data.Emacs.Module.Value as Emacs
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
-type EmacsFunction req opt rest =
-  (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Env -> EmacsArgs req opt rest Emacs.Value
+type EmacsFunction req opt rest
+  = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
+  => Env -> EmacsArgs req opt rest Emacs.Value
 
-type EmacsFunctionExtra extra req opt rest =
-  (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Env -> Ptr extra -> EmacsArgs req opt rest Emacs.Value
+type EmacsFunctionExtra extra req opt rest
+  = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
+  => Env -> Ptr extra -> EmacsArgs req opt rest Emacs.Value
 
 class Monad m => MonadEmacs m where
 

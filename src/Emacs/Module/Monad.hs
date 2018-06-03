@@ -245,9 +245,10 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
       implementation :: RawFunctionType extra
       implementation env nargs argsPtr extraPtr' =
-        Exception.handle (reportAnyErrorToEmacs env) $
-          Checked.handle (reportEmacsThrowToEmacs env) $
-            (supplyEmacsArgs (fromIntegral nargs) argsPtr (emacsFun env extraPtr'))
+        Checked.uncheck (Proxy @UserError) $
+          Exception.handle (reportAnyErrorToEmacs env) $
+            Checked.handle (reportEmacsThrowToEmacs env) $
+              (supplyEmacsArgs (fromIntegral nargs) argsPtr (emacsFun env extraPtr'))
 
   {-# INLINE funcall #-}
   funcall name args =

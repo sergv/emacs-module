@@ -22,6 +22,8 @@ module Emacs.Module.Functions
   , makeInt
   , extractText
   , makeText
+  , extractBool
+  , makeBool
     -- * Vectors
   , extractVector
   , extractVectorWith
@@ -33,6 +35,9 @@ module Emacs.Module.Functions
   , nil
   , setcar
   , setcdr
+    -- * Strings
+  , addFaceProp
+  , appendStrings
   ) where
 
 import Control.Monad.Except
@@ -115,6 +120,16 @@ extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
 makeText :: (WithCallStack, MonadEmacs m) => Text -> m Emacs.Value
 makeText = makeString . TE.encodeUtf8
 
+{-# INLINE extractBool #-}
+-- | Extract a boolean from an Emacs value.
+extractBool :: (WithCallStack, MonadEmacs m) => Emacs.Value -> m Bool
+extractBool = isNotNil
+
+{-# INLINE makeBool #-}
+-- | Convert a Bool into an Emacs string value.
+makeBool :: (WithCallStack, MonadEmacs m) => Bool -> m Emacs.Value
+makeBool b = intern (if b then [esym|t|] else [esym|nil|])
+
 {-# INLINABLE extractVector #-}
 -- | Get all elements form an Emacs vector.
 extractVector
@@ -192,3 +207,25 @@ setcdr
   -> Emacs.Value -- ^ New value
   -> m Emacs.Value
 setcdr x y = funcallPrimitive [esym|setcdr|] [x, y]
+
+{-# INLINE addFaceProp #-}
+-- | Add new 'face property to a string.
+addFaceProp
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value   -- ^ String to add face to
+  -> SymbolName    -- ^ Face name
+  -> m Emacs.Value -- ^ Propertised string
+addFaceProp str face = do
+  faceSym  <- intern [esym|face|]
+  face'    <- intern face
+  funcallPrimitive [esym|propertize|] [str, faceSym, face']
+
+{-# INLINE appendStrings #-}
+-- | Concatenate two strings.
+appendStrings
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.Value
+  -> Emacs.Value
+  -> m Emacs.Value
+appendStrings x y =
+  funcallPrimitive [esym|concat|] [x, y]

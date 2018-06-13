@@ -204,11 +204,11 @@ reportAllErrorsToEmacs env resultOnErr x =
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
   errSym  <- useSymbolNameAsCString [esym|error|] (Raw.intern env)
-  listSym <- useSymbolNameAsCString [esym|list|] (Raw.intern env)
+  listSym <- useSymbolNameAsCString [esym|list|]  (Raw.intern env)
   withTextAsCStringLen (format err) $ \(str, len) -> do
     str' <- Raw.makeString env str (fromIntegral len)
     withArrayLen [str'] $ \nargs argsPtr -> do
-      errData <- Raw.funcall env listSym (fromIntegral nargs) (mkNonNullPtr argsPtr)
+      errData <- Raw.funcallPrimitive env listSym (fromIntegral nargs) (mkNonNullPtr argsPtr)
       -- The 'nonLocalExitSignal' function does not overwrite pending
       -- signals, so it's ok to use it here without checking whether an
       -- error is already going on.

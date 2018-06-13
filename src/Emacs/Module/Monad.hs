@@ -13,7 +13,6 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -120,8 +119,8 @@ checkExitAndRethrowInHaskell errMsg = do
     FuncallExitReturn            -> pure ()
     FuncallExitSignal (sym, dat) -> do
       nonLocalExitClear
-      dat'      <- funcallUnchecked [esym|cons|] [sym, dat]
-      formatted <- funcallUnchecked [esym|prin1-to-string|] [dat']
+      dat'      <- funcallPrimitiveUnchecked [esym|cons|] [sym, dat]
+      formatted <- funcallPrimitiveUnchecked [esym|prin1-to-string|] [dat']
       formatRes <- nonLocalExitCheck
       case formatRes of
         FuncallExitSignal{} -> do
@@ -168,6 +167,14 @@ funcallUnchecked name args =
     fun <- useSymbolNameAsCString name $ Raw.intern env
     withArrayLen args $ \n args' ->
       Raw.funcall env fun (fromIntegral n) (mkNonNullPtr args')
+
+{-# INLINE funcallPrimitiveUnchecked #-}
+funcallPrimitiveUnchecked :: SymbolName -> [Emacs.Value] -> EmacsM Emacs.Value
+funcallPrimitiveUnchecked name args =
+  liftIO' $ \env -> do
+    fun <- useSymbolNameAsCString name $ Raw.intern env
+    withArrayLen args $ \n args' ->
+      Raw.funcallPrimitive env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE typeOfUnchecked #-}
 typeOfUnchecked :: Emacs.Value -> EmacsM Emacs.Value
@@ -264,6 +271,11 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   funcall name args =
     checkExitAndRethrowInHaskell' ("funcall" <+> squotes (pretty name) <+> "failed") $
       funcallUnchecked name args
+
+  {-# INLINE funcallPrimitive #-}
+  funcallPrimitive name args =
+    checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed") $
+      funcallPrimitiveUnchecked name args
 
   {-# INLINE intern #-}
   intern sym =

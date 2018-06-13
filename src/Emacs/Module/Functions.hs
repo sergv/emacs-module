@@ -60,7 +60,7 @@ bindFunction
   -> m ()
 bindFunction name def = do
   name' <- intern name
-  void $ funcall [esym|fset|] [name', def]
+  void $ funcallPrimitive [esym|fset|] [name', def]
 
 {-# INLINE makeFunction #-}
 -- | Wrap Haskell function so that it's callable from Emacs.
@@ -83,7 +83,7 @@ provide
   -> m Emacs.Value
 provide sym = do
   sym' <- intern sym
-  funcall [esym|provide|] [sym']
+  funcallPrimitive [esym|provide|] [sym']
 
 {-# INLINE extractInt #-}
 -- | Try to obtain an 'Int' from Emacs value.
@@ -141,7 +141,7 @@ makeVector
   :: (WithCallStack, MonadEmacs m)
   => [Emacs.Value]
   -> m Emacs.Value
-makeVector = funcall [esym|vector|]
+makeVector = funcallPrimitive [esym|vector|]
 
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.
@@ -150,7 +150,7 @@ cons
   => Emacs.Value -- ^ car
   -> Emacs.Value -- ^ cdr
   -> m Emacs.Value
-cons x y = funcall [esym|cons|] [x, y]
+cons x y = funcallPrimitive [esym|cons|] [x, y]
 
 {-# INLINE car #-}
 -- | Take first element of a pair.
@@ -158,7 +158,7 @@ car
   :: (WithCallStack, MonadEmacs m)
   => Emacs.Value
   -> m Emacs.Value
-car = funcall [esym|car|] . (: [])
+car = funcallPrimitive [esym|car|] . (: [])
 
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
@@ -166,7 +166,7 @@ cdr
   :: (WithCallStack, MonadEmacs m)
   => Emacs.Value
   -> m Emacs.Value
-cdr = funcall [esym|cdr|] . (: [])
+cdr = funcallPrimitive [esym|cdr|] . (: [])
 
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.
@@ -176,17 +176,19 @@ nil
 nil = intern [esym|nil|]
 
 {-# INLINE setcar #-}
+-- | Mutate first element of a cons pair.
 setcar
   :: (WithCallStack, MonadEmacs m)
   => Emacs.Value -- ^ Cons pair
   -> Emacs.Value -- ^ New value
   -> m Emacs.Value
-setcar x y = funcall [esym|setcar|] [x, y]
+setcar x y = funcallPrimitive [esym|setcar|] [x, y]
 
 {-# INLINE setcdr #-}
+-- | Mutate second element of a cons pair.
 setcdr
   :: (WithCallStack, MonadEmacs m)
   => Emacs.Value -- ^ Cons pair
   -> Emacs.Value -- ^ New value
   -> m Emacs.Value
-setcdr x y = funcall [esym|setcdr|] [x, y]
+setcdr x y = funcallPrimitive [esym|setcdr|] [x, y]

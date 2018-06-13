@@ -36,6 +36,7 @@ module Data.Emacs.Module.Env.Raw
   , makeFunction
 
   , funcall
+  , funcallPrimitive
   , intern
   , typeOf
   , isNotNil
@@ -244,6 +245,21 @@ funcall
   -> NonNullPtr Emacs.Value -- ^ Actual arguments
   -> m Emacs.Value
 funcall = funcallTH
+
+
+$(wrapEmacsFunc "funcallPrimitiveTH" Unsafe
+   [e| (#peek emacs_env, funcall) |]
+   [t| Env -> Emacs.Value -> CPtrdiff -> NonNullPtr Emacs.Value -> IO Emacs.Value |])
+
+{-# INLINE funcallPrimitive #-}
+funcallPrimitive
+  :: MonadIO m
+  => Env
+  -> Emacs.Value            -- ^ Function
+  -> CPtrdiff               -- ^ Number of arguments
+  -> NonNullPtr Emacs.Value -- ^ Actual arguments
+  -> m Emacs.Value
+funcallPrimitive = funcallPrimitiveTH
 
 
 $(wrapEmacsFunc "internTH" Unsafe

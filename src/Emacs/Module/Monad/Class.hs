@@ -100,8 +100,16 @@ class Monad m => MonadEmacs m where
     -> m Emacs.Value
 
 
-  -- | Invoke an Emacs function.
+  -- | Invoke an Emacs function that may call back into Haskell.
   funcall
+    :: WithCallStack
+    => SymbolName    -- ^ Function name
+    -> [Emacs.Value] -- ^ Arguments
+    -> m Emacs.Value
+
+  -- | Invoke an Emacs function. The function should be simple and
+  -- must not call back into Haskell.
+  funcallPrimitive
     :: WithCallStack
     => SymbolName    -- ^ Function name
     -> [Emacs.Value] -- ^ Arguments

@@ -73,7 +73,7 @@ apply2
   :: WithCallStack
   => EmacsFunction ('S ('S 'Z)) 'Z 'False
 apply2 env f x = runEmacsM env $ do
-  y <- funcall [esym|funcall|] [f, x]
+  y <- funcallPrimitive [esym|funcall|] [f, x]
   funcall [esym|funcall|] [f, y]
 
 add

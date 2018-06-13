@@ -33,6 +33,7 @@ module Data.Emacs.Module.Env
   , makeFunction
 
   , funcall
+  , funcallPrimitive
   , intern
   , typeOf
   , isNotNil

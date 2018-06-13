@@ -130,4 +130,4 @@ script:
     echo "Emacs module is built at $DYNAMIC_MODULE"
 
   - |
-    "$EMACS_INSTALL/bin/emacs" -Q --batch -L "$DYNAMIC_MODULE_DIR" -L "elisp" -l "$DYNAMIC_MODULE_FILE" -l haskell-emacs-module-test -f ert-run-tests-batch-and-exit
+    "$EMACS_INSTALL/bin/emacs" -Q --batch --module-assertions -L "$DYNAMIC_MODULE_DIR" -L "elisp" -l "$DYNAMIC_MODULE_FILE" -l haskell-emacs-module-test -f ert-run-tests-batch-and-exit

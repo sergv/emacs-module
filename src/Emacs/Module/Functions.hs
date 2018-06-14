@@ -68,7 +68,9 @@ bindFunction name def = do
   void $ funcallPrimitive [esym|fset|] [name', def]
 
 {-# INLINE makeFunction #-}
--- | Wrap Haskell function so that it's callable from Emacs.
+-- | Make Haskell function available as an anonymoucs Emacs
+-- function. In order to be able to use it later from Emacs it should
+-- be fed into 'bindFunction'.
 --
 -- This is a simplified version of 'makeFunctionExtra'.
 makeFunction

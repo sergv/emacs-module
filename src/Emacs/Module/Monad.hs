@@ -52,9 +52,9 @@ import Foreign.Ptr (Ptr, nullPtr)
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Env.Internal (Env, RawFunctionType, exportToEmacs)
-import qualified Data.Emacs.Module.Env.Raw as Raw
 import Data.Emacs.Module.NonNullPtr
+import qualified Data.Emacs.Module.Raw.Env as Raw
+import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType, exportToEmacs)
 import Data.Emacs.Module.SymbolName (SymbolName, useSymbolNameAsCString)
 import Data.Emacs.Module.SymbolName.TH
 import qualified Data.Emacs.Module.Value as Emacs

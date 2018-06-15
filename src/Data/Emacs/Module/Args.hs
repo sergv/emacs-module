@@ -44,7 +44,7 @@ import Data.Proxy
 import Foreign
 import Foreign.C.Types (CPtrdiff)
 
-import Data.Emacs.Module.Env.Raw (variadicFunctionArgs)
+import Data.Emacs.Module.Raw.Env (variadicFunctionArgs)
 import qualified Data.Emacs.Module.Value as Emacs
 
 data Nat = Z | S Nat

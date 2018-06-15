@@ -11,7 +11,7 @@
 
 {-# OPTIONS_HADDOCK not-home #-}
 
-module Data.Emacs.Module.Env.Internal
+module Data.Emacs.Module.Raw.Env.Internal
   ( Env(..)
   , toPtr
   , exportToEmacs
@@ -23,7 +23,7 @@ import Foreign
 import Foreign.C.Types
 
 import Data.Emacs.Module.NonNullPtr
-import qualified Data.Emacs.Module.Value as Emacs
+import Data.Emacs.Module.Raw.Value
 
 import Data.Emacs.Module.NonNullPtr.Internal
 
@@ -37,10 +37,10 @@ toPtr = unNonNullPtr . unEnv
 
 type RawFunctionType a =
      Env
-  -> CPtrdiff           -- Number of arguments
-  -> Ptr Emacs.RawValue -- Actual arguments
-  -> Ptr a              -- Extra data
-  -> IO Emacs.RawValue
+  -> CPtrdiff     -- Number of arguments
+  -> Ptr RawValue -- Actual arguments
+  -> Ptr a        -- Extra data
+  -> IO RawValue
 
 foreign import ccall "wrapper"
   exportToEmacs :: RawFunctionType a -> IO (RawFunction a)

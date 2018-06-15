@@ -21,7 +21,7 @@ import Foreign
 import Foreign.C.Types
 
 import qualified Data.Emacs.Module.Env as Emacs
-import Data.Emacs.Module.Env.Internal (Env(..))
+import Data.Emacs.Module.Raw.Env.Internal (Env(..))
 import Data.Emacs.Module.NonNullPtr
 
 import Data.Emacs.Module.NonNullPtr.Internal

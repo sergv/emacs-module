@@ -25,7 +25,7 @@ import Foreign.Ptr (Ptr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Env.Internal (Env)
+import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.SymbolName (SymbolName)
 import qualified Data.Emacs.Module.Value as Emacs
 import Emacs.Module.Assert

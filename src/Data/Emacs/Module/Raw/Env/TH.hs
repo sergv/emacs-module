@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Data.Emacs.Module.Env.Raw.TH
+-- Module      :  Data.Emacs.Module.Raw.Env.TH
 -- Copyright   :  (c) Sergey Vinokurov 2018
 -- License     :  BSD3-style (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
@@ -9,14 +9,14 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
-module Data.Emacs.Module.Env.Raw.TH (wrapEmacsFunc, Safety(..)) where
+module Data.Emacs.Module.Raw.Env.TH (wrapEmacsFunc, Safety(..)) where
 
 import Control.Monad.IO.Class
 import Data.List (foldl')
 import Foreign.Ptr as Foreign
 import Language.Haskell.TH
 
-import Data.Emacs.Module.Env.Internal as Env
+import Data.Emacs.Module.Raw.Env.Internal as Env
 
 decomposeFunctionType :: Type -> ([Type], Type)
 decomposeFunctionType = go []

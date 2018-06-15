@@ -64,9 +64,10 @@ library
     Emacs.Module.Monad
     Emacs.Module.Monad.Class
   other-modules:
-    Data.Emacs.Module.Env.Internal
-    Data.Emacs.Module.Env.Raw
-    Data.Emacs.Module.Env.Raw.TH
+    Data.Emacs.Module.Raw.Env
+    Data.Emacs.Module.Raw.Env.Internal
+    Data.Emacs.Module.Raw.Env.TH
+    Data.Emacs.Module.Raw.Value
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.NonNullPtr.Internal
   hs-source-dirs:

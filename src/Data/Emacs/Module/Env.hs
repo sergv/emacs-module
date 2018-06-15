@@ -60,5 +60,5 @@ module Data.Emacs.Module.Env
   ) where
 
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Env.Internal
-import Data.Emacs.Module.Env.Raw
+import Data.Emacs.Module.Raw.Env.Internal
+import Data.Emacs.Module.Raw.Env

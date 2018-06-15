@@ -51,7 +51,7 @@ import GHC.Stack (CallStack, callStack, prettyCallStack)
 import Text.Show (showString)
 
 import qualified Data.Emacs.Module.Env as Raw
-import Data.Emacs.Module.Env.Internal (Env)
+import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.SymbolName (useSymbolNameAsCString)
 import Data.Emacs.Module.SymbolName.TH

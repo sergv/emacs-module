@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Data.Emacs.Module.Value
+-- Module      :  Data.Emacs.Module.RawValue
 -- Copyright   :  (c) Sergey Vinokurov 2018
 -- License     :  BSD3-style (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
@@ -9,19 +9,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Emacs.Module.Value
-  ( Value(..)
+  ( RawValue(..)
   , GlobalRef(..)
   ) where
 
 import Foreign
 
--- | Not a real pointer because emacs values are not really pointers. That is,
+-- | Basic handle on an Emacs value. Can be GC'ed after any call into Emacs.
+-- To overcome that, use 'ValueGC'.
+--
+-- Not a real pointer because emacs values are not really pointers. That is,
 -- they're completely opaque.
-newtype Value = Value { unValue :: Ptr Value }
+newtype RawValue = RawValue { unRawValue :: Ptr RawValue }
   deriving (Storable)
 
 -- | Value that is independent of environment ('Env') that produced it.
+-- Incidentally, this implies that it's "protected" against Emacs GC and
+-- thus will not unexpectedly go out of scope.
 --
 -- Can be used to e.g. cache values that are expensive to compute from scratch.
-newtype GlobalRef = GlobalRef { unGlobalRef :: Value }
+newtype GlobalRef = GlobalRef { unGlobalRef :: RawValue }
   deriving (Storable)

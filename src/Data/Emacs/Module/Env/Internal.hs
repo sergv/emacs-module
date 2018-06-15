@@ -37,10 +37,10 @@ toPtr = unNonNullPtr . unEnv
 
 type RawFunctionType a =
      Env
-  -> CPtrdiff        -- Number of arguments
-  -> Ptr Emacs.Value -- Actual arguments
-  -> Ptr a           -- Extra data
-  -> IO Emacs.Value
+  -> CPtrdiff           -- Number of arguments
+  -> Ptr Emacs.RawValue -- Actual arguments
+  -> Ptr a              -- Extra data
+  -> IO Emacs.RawValue
 
 foreign import ccall "wrapper"
   exportToEmacs :: RawFunctionType a -> IO (RawFunction a)

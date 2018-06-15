@@ -63,8 +63,8 @@ import Emacs.Module.Assert
 --
 -- Unlikely to be needed when developing Emacs extensions.
 data EmacsThrow = EmacsThrow
-  { emacsThrowTag    :: !Emacs.Value
-  , emacsThrowValue  :: !Emacs.Value
+  { emacsThrowTag    :: !Emacs.RawValue
+  , emacsThrowValue  :: !Emacs.RawValue
   }
 
 instance Show EmacsThrow where
@@ -72,7 +72,7 @@ instance Show EmacsThrow where
 
 instance Exception EmacsThrow
 
-reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO Emacs.Value
+reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO Emacs.RawValue
 reportEmacsThrowToEmacs env EmacsThrow{emacsThrowTag, emacsThrowValue} = do
   Raw.nonLocalExitThrow env emacsThrowTag emacsThrowValue
   returnNil env
@@ -133,7 +133,7 @@ instance Pretty EmacsError where
     "Location:" <> line <>
     indent 2 (ppCallStack emacsErrStack)
 
-reportErrorToEmacs :: Env -> EmacsError -> IO Emacs.Value
+reportErrorToEmacs :: Env -> EmacsError -> IO Emacs.RawValue
 reportErrorToEmacs env e = do
   report render env e
   returnNil env
@@ -156,7 +156,7 @@ mkEmacsInternalError msg = EmacsInternalError
   , emacsInternalErrStack = callStack
   }
 
-reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO Emacs.Value
+reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO Emacs.RawValue
 reportInternalErrorToEmacs env e = do
   report render env e
   returnNil env
@@ -179,7 +179,7 @@ formatSomeException e =
         "Error within Haskell<->Emacs bindings:" <> line <>
         indent 2 (pretty (show e))
 
-reportAnyErrorToEmacs :: Env -> SomeException -> IO Emacs.Value
+reportAnyErrorToEmacs :: Env -> SomeException -> IO Emacs.RawValue
 reportAnyErrorToEmacs env e = do
   report formatSomeException env e
   returnNil env
@@ -220,7 +220,7 @@ withTextAsCString0AndLen str f =
   where
     utf8 = (TE.encodeUtf8 str)
 
-returnNil :: Env -> IO Emacs.Value
+returnNil :: Env -> IO Emacs.RawValue
 returnNil env =
   useSymbolNameAsCString [esym|nil|] (Raw.intern env)
 

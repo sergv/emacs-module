@@ -100,28 +100,28 @@ isValidEnv env = liftIO $ do
 
 $(wrapEmacsFunc "makeGlobalRefTH" Unsafe
    [e| (#peek emacs_env, make_global_ref) |]
-   [t| Env -> Emacs.Value -> IO Emacs.Value |])
+   [t| Env -> Emacs.RawValue -> IO Emacs.RawValue |])
 
 {-# INLINE makeGlobalRef #-}
 makeGlobalRef
   :: forall m. MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m Emacs.GlobalRef
 makeGlobalRef env x =
   liftIO $
     coerce
       (makeGlobalRefTH
         :: Env
-        -> Emacs.Value
-        -> IO Emacs.Value)
+        -> Emacs.RawValue
+        -> IO Emacs.RawValue)
       env
       x
 
 
 $(wrapEmacsFunc "freeGlobalRefTH" Unsafe
    [e| (#peek emacs_env, free_global_ref) |]
-   [t| Env -> Emacs.Value -> IO () |])
+   [t| Env -> Emacs.RawValue -> IO () |])
 
 {-# INLINE freeGlobalRef #-}
 freeGlobalRef
@@ -132,7 +132,7 @@ freeGlobalRef
 freeGlobalRef env x =
   liftIO $
   coerce
-    (freeGlobalRefTH :: Env -> Emacs.Value -> IO ())
+    (freeGlobalRefTH :: Env -> Emacs.RawValue -> IO ())
     env
     x
 
@@ -151,42 +151,42 @@ nonLocalExitCheck = nonLocalExitCheckTH
 
 $(wrapEmacsFunc "nonLocalExitGetTH" Unsafe
    [e| (#peek emacs_env, non_local_exit_get) |]
-   [t| Env -> NonNullPtr Emacs.Value -> NonNullPtr Emacs.Value -> IO EnumFuncallExit |])
+   [t| Env -> NonNullPtr Emacs.RawValue -> NonNullPtr Emacs.RawValue -> IO EnumFuncallExit |])
 
 {-# INLINE nonLocalExitGet #-}
 nonLocalExitGet
   :: MonadIO m
   => Env
-  -> NonNullPtr Emacs.Value -- ^ Symbol output
-  -> NonNullPtr Emacs.Value -- ^ Data output
+  -> NonNullPtr Emacs.RawValue -- ^ Symbol output
+  -> NonNullPtr Emacs.RawValue -- ^ Data output
   -> m EnumFuncallExit
 nonLocalExitGet = nonLocalExitGetTH
 
 
 $(wrapEmacsFunc "nonLocalExitSignalTH" Unsafe
    [e| (#peek emacs_env, non_local_exit_signal) |]
-   [t| Env -> Emacs.Value -> Emacs.Value -> IO () |])
+   [t| Env -> Emacs.RawValue -> Emacs.RawValue -> IO () |])
 
 {-# INLINE nonLocalExitSignal #-}
 nonLocalExitSignal
   :: MonadIO m
   => Env
-  -> Emacs.Value -- ^ Error symbol
-  -> Emacs.Value -- ^ Error data
+  -> Emacs.RawValue -- ^ Error symbol
+  -> Emacs.RawValue -- ^ Error data
   -> m ()
 nonLocalExitSignal = nonLocalExitSignalTH
 
 
 $(wrapEmacsFunc "nonLocalExitThrowTH" Unsafe
    [e| (#peek emacs_env, non_local_exit_throw) |]
-   [t| Env -> Emacs.Value -> Emacs.Value -> IO () |])
+   [t| Env -> Emacs.RawValue -> Emacs.RawValue -> IO () |])
 
 {-# INLINE nonLocalExitThrow #-}
 nonLocalExitThrow
   :: MonadIO m
   => Env
-  -> Emacs.Value -- ^ Tag, a symbol
-  -> Emacs.Value -- ^ Value
+  -> Emacs.RawValue -- ^ Tag, a symbol
+  -> Emacs.RawValue -- ^ Value
   -> m ()
 nonLocalExitThrow = nonLocalExitThrowTH
 
@@ -208,7 +208,7 @@ variadicFunctionArgs = (#const emacs_variadic_function)
 
 $(wrapEmacsFunc "makeFunctionTH" Unsafe
    [e| (#peek emacs_env, make_function) |]
-   [t| forall a. Env -> CPtrdiff -> CPtrdiff -> FunPtr (RawFunctionType a) -> CString -> Ptr a -> IO Emacs.Value |])
+   [t| forall a. Env -> CPtrdiff -> CPtrdiff -> FunPtr (RawFunctionType a) -> CString -> Ptr a -> IO Emacs.RawValue |])
 
 {-# INLINE makeFunction #-}
 makeFunction
@@ -219,7 +219,7 @@ makeFunction
   -> RawFunction a -- ^ Implementation
   -> CString       -- ^ Documentation
   -> Ptr a         -- ^ Extra data
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 makeFunction =
   coerce
     (makeFunctionTH ::
@@ -229,147 +229,147 @@ makeFunction =
       -> FunPtr (RawFunctionType a)
       -> CString
       -> Ptr a
-      -> m Emacs.Value)
+      -> m Emacs.RawValue)
 
 
 $(wrapEmacsFunc "funcallTH" Safe
    [e| (#peek emacs_env, funcall) |]
-   [t| Env -> Emacs.Value -> CPtrdiff -> NonNullPtr Emacs.Value -> IO Emacs.Value |])
+   [t| Env -> Emacs.RawValue -> CPtrdiff -> NonNullPtr Emacs.RawValue -> IO Emacs.RawValue |])
 
 {-# INLINE funcall #-}
 funcall
   :: MonadIO m
   => Env
-  -> Emacs.Value            -- ^ Function
-  -> CPtrdiff               -- ^ Number of arguments
-  -> NonNullPtr Emacs.Value -- ^ Actual arguments
-  -> m Emacs.Value
+  -> Emacs.RawValue            -- ^ Function
+  -> CPtrdiff                  -- ^ Number of arguments
+  -> NonNullPtr Emacs.RawValue -- ^ Actual arguments
+  -> m Emacs.RawValue
 funcall = funcallTH
 
 
 $(wrapEmacsFunc "funcallPrimitiveTH" Unsafe
    [e| (#peek emacs_env, funcall) |]
-   [t| Env -> Emacs.Value -> CPtrdiff -> NonNullPtr Emacs.Value -> IO Emacs.Value |])
+   [t| Env -> Emacs.RawValue -> CPtrdiff -> NonNullPtr Emacs.RawValue -> IO Emacs.RawValue |])
 
 {-# INLINE funcallPrimitive #-}
 funcallPrimitive
   :: MonadIO m
   => Env
-  -> Emacs.Value            -- ^ Function
-  -> CPtrdiff               -- ^ Number of arguments
-  -> NonNullPtr Emacs.Value -- ^ Actual arguments
-  -> m Emacs.Value
+  -> Emacs.RawValue            -- ^ Function
+  -> CPtrdiff                  -- ^ Number of arguments
+  -> NonNullPtr Emacs.RawValue -- ^ Actual arguments
+  -> m Emacs.RawValue
 funcallPrimitive = funcallPrimitiveTH
 
 
 $(wrapEmacsFunc "internTH" Unsafe
    [e| (#peek emacs_env, intern) |]
-   [t| Env -> CString -> IO Emacs.Value |])
+   [t| Env -> CString -> IO Emacs.RawValue |])
 
 {-# INLINE intern #-}
 intern
   :: MonadIO m
   => Env
   -> CString
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 intern = internTH
 
 
 $(wrapEmacsFunc "typeOfTH" Unsafe
    [e| (#peek emacs_env, type_of) |]
-   [t| Env -> Emacs.Value -> IO Emacs.Value |])
+   [t| Env -> Emacs.RawValue -> IO Emacs.RawValue |])
 
 {-# INLINE typeOf #-}
 typeOf
   :: MonadIO m
   => Env
-  -> Emacs.Value
-  -> m Emacs.Value
+  -> Emacs.RawValue
+  -> m Emacs.RawValue
 typeOf = typeOfTH
 
 
 $(wrapEmacsFunc "isNotNilTH" Unsafe
    [e| (#peek emacs_env, is_not_nil) |]
-   [t| Env -> Emacs.Value -> IO CBoolean |])
+   [t| Env -> Emacs.RawValue -> IO CBoolean |])
 
 {-# INLINE isNotNil #-}
 isNotNil
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m CBoolean
 isNotNil = isNotNilTH
 
 
 $(wrapEmacsFunc "eqTH" Unsafe
    [e| (#peek emacs_env, eq) |]
-   [t| Env -> Emacs.Value -> Emacs.Value -> IO CBoolean |])
+   [t| Env -> Emacs.RawValue -> Emacs.RawValue -> IO CBoolean |])
 
 {-# INLINE eq #-}
 eq
   :: MonadIO m
   => Env
-  -> Emacs.Value
-  -> Emacs.Value
+  -> Emacs.RawValue
+  -> Emacs.RawValue
   -> m CBoolean
 eq = eqTH
 
 
 $(wrapEmacsFunc "extractIntegerTH" Unsafe
    [e| (#peek emacs_env, extract_integer) |]
-   [t| Env -> Emacs.Value -> IO CIntMax |])
+   [t| Env -> Emacs.RawValue -> IO CIntMax |])
 
 {-# INLINE extractInteger #-}
 extractInteger
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m CIntMax
 extractInteger = extractIntegerTH
 
 
 $(wrapEmacsFunc "makeIntegerTH" Unsafe
    [e| (#peek emacs_env, make_integer) |]
-   [t| Env -> CIntMax -> IO Emacs.Value |])
+   [t| Env -> CIntMax -> IO Emacs.RawValue |])
 
 {-# INLINE makeInteger #-}
 makeInteger
   :: MonadIO m
   => Env
   -> CIntMax
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 makeInteger = makeIntegerTH
 
 
 $(wrapEmacsFunc "extractFloatTH" Unsafe
    [e| (#peek emacs_env, extract_float) |]
-   [t| Env -> Emacs.Value -> IO CDouble |])
+   [t| Env -> Emacs.RawValue -> IO CDouble |])
 
 {-# INLINE extractFloat #-}
 extractFloat
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m CDouble
 extractFloat = extractFloatTH
 
 
 $(wrapEmacsFunc "makeFloatTH" Unsafe
    [e| (#peek emacs_env, make_float) |]
-   [t| Env -> CDouble -> IO Emacs.Value |])
+   [t| Env -> CDouble -> IO Emacs.RawValue |])
 
 {-# INLINE makeFloat #-}
 makeFloat
   :: MonadIO m
   => Env
   -> CDouble
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 makeFloat = makeFloatTH
 
 
 $(wrapEmacsFunc "copyStringContentsTH" Unsafe
    [e| (#peek emacs_env, copy_string_contents) |]
-   [t| Env -> Emacs.Value -> CString -> NonNullPtr CPtrdiff -> IO CBoolean |])
+   [t| Env -> Emacs.RawValue -> CString -> NonNullPtr CPtrdiff -> IO CBoolean |])
 
 {-# INLINE copyStringContents #-}
 -- |  Copy the content of the Lisp string VALUE to BUFFER as an utf8
@@ -386,7 +386,7 @@ $(wrapEmacsFunc "copyStringContentsTH" Unsafe
 copyStringContents
   :: MonadIO m
   => Env
-  -> Emacs.Value         -- ^ Emacs value that holds a string
+  -> Emacs.RawValue      -- ^ Emacs value that holds a string
   -> CString             -- ^ Destination, may be NULL
   -> NonNullPtr CPtrdiff -- ^ SIZE pointer
   -> m CBoolean
@@ -395,7 +395,7 @@ copyStringContents = copyStringContentsTH
 
 $(wrapEmacsFunc "makeStringTH" Unsafe
    [e| (#peek emacs_env, make_string) |]
-   [t| Env -> CString -> CPtrdiff -> IO Emacs.Value |])
+   [t| Env -> CString -> CPtrdiff -> IO Emacs.RawValue |])
 
 {-# INLINE makeString #-}
 makeString
@@ -403,13 +403,13 @@ makeString
   => Env
   -> CString  -- ^ 0-terminated utf8-encoded string.
   -> CPtrdiff -- ^ Length.
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 makeString = makeStringTH
 
 
 $(wrapEmacsFunc "makeUserPtrTH" Unsafe
    [e| (#peek emacs_env, make_user_ptr) |]
-   [t| forall a. Env -> UserPtrFinaliser a -> Ptr a -> IO Emacs.Value |])
+   [t| forall a. Env -> UserPtrFinaliser a -> Ptr a -> IO Emacs.RawValue |])
 
 {-# INLINE makeUserPtr #-}
 makeUserPtr
@@ -417,32 +417,32 @@ makeUserPtr
   => Env
   -> UserPtrFinaliser a
   -> Ptr a
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 makeUserPtr = makeUserPtrTH
 
 
 $(wrapEmacsFunc "getUserPtrTH" Unsafe
    [e| (#peek emacs_env, get_user_ptr) |]
-   [t| forall a. Env -> Emacs.Value -> IO (Ptr a) |])
+   [t| forall a. Env -> Emacs.RawValue -> IO (Ptr a) |])
 
 {-# INLINE getUserPtr #-}
 getUserPtr
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m (Ptr a)
 getUserPtr = getUserPtrTH
 
 
 $(wrapEmacsFunc "setUserPtrTH" Unsafe
    [e| (#peek emacs_env, set_user_ptr) |]
-   [t| forall a. Env -> Emacs.Value -> Ptr a -> IO () |])
+   [t| forall a. Env -> Emacs.RawValue -> Ptr a -> IO () |])
 
 {-# INLINE setUserPtr #-}
 setUserPtr
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> Ptr a
   -> m ()
 setUserPtr = setUserPtrTH
@@ -450,26 +450,26 @@ setUserPtr = setUserPtrTH
 
 $(wrapEmacsFunc "getUserFinaliserTH" Unsafe
    [e| (#peek emacs_env, get_user_finalizer) |]
-   [t| forall a. Env -> Emacs.Value -> IO (UserPtrFinaliser a) |])
+   [t| forall a. Env -> Emacs.RawValue -> IO (UserPtrFinaliser a) |])
 
 {-# INLINE getUserFinaliser #-}
 getUserFinaliser
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m (UserPtrFinaliser a)
 getUserFinaliser = getUserFinaliserTH
 
 
 $(wrapEmacsFunc "setUserFinaliserTH" Unsafe
    [e| (#peek emacs_env, set_user_finalizer) |]
-   [t| forall a. Env -> Emacs.Value -> UserPtrFinaliser a -> IO () |])
+   [t| forall a. Env -> Emacs.RawValue -> UserPtrFinaliser a -> IO () |])
 
 {-# INLINE setUserFinaliser #-}
 setUserFinaliser
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> UserPtrFinaliser a
   -> m ()
 setUserFinaliser = setUserFinaliserTH
@@ -477,42 +477,42 @@ setUserFinaliser = setUserFinaliserTH
 
 $(wrapEmacsFunc "vecGetTH" Unsafe
    [e| (#peek emacs_env, vec_get) |]
-   [t| Env -> Emacs.Value -> CPtrdiff -> IO Emacs.Value |])
+   [t| Env -> Emacs.RawValue -> CPtrdiff -> IO Emacs.RawValue |])
 
 {-# INLINE vecGet #-}
 vecGet
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> CPtrdiff
-  -> m Emacs.Value
+  -> m Emacs.RawValue
 vecGet = vecGetTH
 
 
 $(wrapEmacsFunc "vecSetTH" Unsafe
    [e| (#peek emacs_env, vec_set) |]
-   [t| Env -> Emacs.Value -> CPtrdiff -> Emacs.Value -> IO () |])
+   [t| Env -> Emacs.RawValue -> CPtrdiff -> Emacs.RawValue -> IO () |])
 
 {-# INLINE vecSet #-}
 vecSet
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> CPtrdiff
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m ()
 vecSet = vecSetTH
 
 
 $(wrapEmacsFunc "vecSizeTH" Unsafe
    [e| (#peek emacs_env, vec_size) |]
-   [t| Env -> Emacs.Value -> IO CPtrdiff |])
+   [t| Env -> Emacs.RawValue -> IO CPtrdiff |])
 
 {-# INLINE vecSize #-}
 vecSize
   :: MonadIO m
   => Env
-  -> Emacs.Value
+  -> Emacs.RawValue
   -> m CPtrdiff
 vecSize = vecSizeTH
 

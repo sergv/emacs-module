@@ -64,8 +64,8 @@ import Emacs.Module.Monad.Class
 
 data Environment = Environment
   { eEnv       :: !Env
-  , eErrorSym  :: !(NonNullPtr Emacs.Value)
-  , eErrorData :: !(NonNullPtr Emacs.Value)
+  , eErrorSym  :: !(NonNullPtr Emacs.RawValue)
+  , eErrorData :: !(NonNullPtr Emacs.RawValue)
   }
 
 newtype EmacsM a = EmacsM { unEmacsM :: ReaderT Environment IO a }
@@ -156,12 +156,12 @@ checkExitAndRethrowInHaskell' errMsg action =
   action <* checkExitAndRethrowInHaskell errMsg
 
 {-# INLINE internUnchecked #-}
-internUnchecked :: SymbolName -> EmacsM Emacs.Value
+internUnchecked :: SymbolName -> EmacsM Emacs.RawValue
 internUnchecked sym =
   liftIO' $ \env -> useSymbolNameAsCString sym $ Raw.intern env
 
 {-# INLINE funcallUnchecked #-}
-funcallUnchecked :: SymbolName -> [Emacs.Value] -> EmacsM Emacs.Value
+funcallUnchecked :: SymbolName -> [Emacs.RawValue] -> EmacsM Emacs.RawValue
 funcallUnchecked name args =
   liftIO' $ \env -> do
     fun <- useSymbolNameAsCString name $ Raw.intern env
@@ -169,7 +169,7 @@ funcallUnchecked name args =
       Raw.funcall env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE funcallPrimitiveUnchecked #-}
-funcallPrimitiveUnchecked :: SymbolName -> [Emacs.Value] -> EmacsM Emacs.Value
+funcallPrimitiveUnchecked :: SymbolName -> [Emacs.RawValue] -> EmacsM Emacs.RawValue
 funcallPrimitiveUnchecked name args =
   liftIO' $ \env -> do
     fun <- useSymbolNameAsCString name $ Raw.intern env
@@ -177,19 +177,19 @@ funcallPrimitiveUnchecked name args =
       Raw.funcallPrimitive env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE typeOfUnchecked #-}
-typeOfUnchecked :: Emacs.Value -> EmacsM Emacs.Value
+typeOfUnchecked :: Emacs.RawValue -> EmacsM Emacs.RawValue
 typeOfUnchecked x =
   liftIO' $ \env -> Raw.typeOf env x
 
 extractTextUtf8Unchecked
   :: (WithCallStack, Throws EmacsInternalError)
-  => Emacs.Value -> EmacsM T.Text
+  => Emacs.RawValue -> EmacsM T.Text
 extractTextUtf8Unchecked =
   fmap (TE.decodeUtf8With TE.lenientDecode) . extractStringUnchecked
 
 extractStringUnchecked
   :: (WithCallStack, Throws EmacsInternalError)
-  => Emacs.Value -> EmacsM BS.ByteString
+  => Emacs.RawValue -> EmacsM BS.ByteString
 extractStringUnchecked x = do
   liftIO' $ \env ->
     allocaNonNull $ \pSize -> do
@@ -250,7 +250,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
     => EmacsFunctionExtra extra req opt rest
     -> C8.ByteString
     -> Ptr extra
-    -> EmacsM Emacs.Value
+    -> EmacsM Emacs.RawValue
   makeFunctionExtra emacsFun docs extraPtr =
     checkExitAndRethrowInHaskell' "makeFunctionExtra failed" $
       liftIO' $ \env ->

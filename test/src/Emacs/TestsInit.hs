@@ -110,9 +110,9 @@ appendLotsOfStrings env n = runEmacsM env $ do
 
 concat2'
   :: (WithCallStack, MonadEmacs m)
-  => (m Emacs.Value, C8.ByteString)
-  -> (m Emacs.Value, C8.ByteString)
-  -> (m Emacs.Value, C8.ByteString)
+  => (m Emacs.RawValue, C8.ByteString)
+  -> (m Emacs.RawValue, C8.ByteString)
+  -> (m Emacs.RawValue, C8.ByteString)
 concat2' (x, xStr) (y, yStr) =
   (go, xStr <> yStr)
   where

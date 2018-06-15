@@ -61,29 +61,29 @@ instance forall n. NatValue n => NatValue ('S n) where
   natValue _ = 1 + natValue (Proxy @n)
 
 -- type family EmacsArgs' (req :: Nat) (m :: Type -> Type) (a :: Type) = (r :: Type) | r -> req m a where
---   EmacsArgs' ('S n) m a = Emacs.Value       -> EmacsArgs' n  m a
---   -- EmacsArgs 'Z     m a = Maybe Emacs.Value -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [Emacs.Value]     -> m a
+--   EmacsArgs' ('S n) m a = Emacs.RawValue       -> EmacsArgs' n  m a
+--   -- EmacsArgs 'Z     m a = Maybe Emacs.RawValue -> EmacsArgs' 'Z k   rest m a
+--   -- EmacsArgs 'Z     m a = [Emacs.RawValue]     -> m a
 --   EmacsArgs' 'Z     m a = m a
 
 -- type family EmacsArgs' (req :: Nat) (a :: Type) = (r :: Type) | r -> req
 --
--- type instance EmacsArgs' ('S n) a = Emacs.Value -> EmacsArgs' n a
---   -- EmacsArgs 'Z     m a = Maybe Emacs.Value -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [Emacs.Value]     -> m a
+-- type instance EmacsArgs' ('S n) a = Emacs.RawValue -> EmacsArgs' n a
+--   -- EmacsArgs 'Z     m a = Maybe Emacs.RawValue -> EmacsArgs' 'Z k   rest m a
+--   -- EmacsArgs 'Z     m a = [Emacs.RawValue]     -> m a
 -- type instance EmacsArgs' 'Z     a = IO a
 
 
 type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (a :: Type) = (r :: Type) | r -> req opt rest where
-  EmacsArgs ('S n) opt    rest   a = Emacs.Value       -> EmacsArgs n  opt rest a
-  EmacsArgs 'Z     ('S k) rest   a = Maybe Emacs.Value -> EmacsArgs 'Z k   rest a
-  EmacsArgs 'Z     'Z     'True  a = [Emacs.Value]     -> IO a
+  EmacsArgs ('S n) opt    rest   a = Emacs.RawValue       -> EmacsArgs n  opt rest a
+  EmacsArgs 'Z     ('S k) rest   a = Maybe Emacs.RawValue -> EmacsArgs 'Z k   rest a
+  EmacsArgs 'Z     'Z     'True  a = [Emacs.RawValue]     -> IO a
   EmacsArgs 'Z     'Z     'False a = IO a
 
 class EmacsInvocation req opt rest where
   supplyEmacsArgs
     :: Int
-    -> Ptr Emacs.Value
+    -> Ptr Emacs.RawValue
     -> EmacsArgs req opt rest a
     -> IO a
 
@@ -93,20 +93,20 @@ instance EmacsInvocation 'Z 'Z 'False where
 
 instance EmacsInvocation 'Z 'Z 'True where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.Value -> ([Emacs.Value] -> IO a) -> IO a
+  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> ([Emacs.RawValue] -> IO a) -> IO a
   supplyEmacsArgs nargs startPtr f =
     case nargs of
       0 -> f []
       n -> f =<< peekArray n startPtr
 
 {-# INLINE advanceEmacsValuePtr #-}
-advanceEmacsValuePtr :: Ptr Emacs.Value -> Ptr Emacs.Value
+advanceEmacsValuePtr :: Ptr Emacs.RawValue -> Ptr Emacs.RawValue
 advanceEmacsValuePtr =
-  (`plusPtr` (sizeOf (undefined :: Emacs.Value)))
+  (`plusPtr` (sizeOf (undefined :: Emacs.RawValue)))
 
 instance EmacsInvocation 'Z n rest => EmacsInvocation 'Z ('S n) rest where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.Value -> (EmacsArgs 'Z ('S n) rest a) -> IO a
+  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> (EmacsArgs 'Z ('S n) rest a) -> IO a
   supplyEmacsArgs nargs startPtr f =
     case nargs of
       0 -> supplyEmacsArgs nargs startPtr (f Nothing)
@@ -116,7 +116,7 @@ instance EmacsInvocation 'Z n rest => EmacsInvocation 'Z ('S n) rest where
 
 instance EmacsInvocation n opt rest => EmacsInvocation ('S n) opt rest where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.Value -> (EmacsArgs ('S n) opt rest a) -> IO a
+  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> (EmacsArgs ('S n) opt rest a) -> IO a
   supplyEmacsArgs nargs startPtr f = do
     arg <- peek startPtr
     supplyEmacsArgs (nargs - 1) (advanceEmacsValuePtr startPtr) (f arg)

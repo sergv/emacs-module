@@ -16,8 +16,12 @@
 
 module Emacs.TestsInit () where
 
+import Debug.Trace
+
 import Control.Monad.IO.Class
 
+import qualified Data.ByteString.Char8 as C8
+import Data.Maybe
 import Foreign
 #if MIN_VERSION_base(4,10,0)
 import Foreign.C
@@ -27,6 +31,7 @@ import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)
 import qualified Data.Emacs.Module.Runtime as Runtime
 import Data.Emacs.Module.SymbolName.TH
+import qualified Data.Emacs.Module.Value as Emacs
 import Emacs.Module
 import Emacs.Module.Assert
 
@@ -61,12 +66,14 @@ initialise runtime = do
 
 initialise' :: (WithCallStack, MonadEmacs m, MonadIO m) => m Bool
 initialise' = do
-  funApply2 <- makeFunction apply2 "Apply a function twice."
-  bindFunction [esym|haskell-emacs-module-tests-apply2|] funApply2
-  funAdd <- makeFunction add "Add two numbers."
-  bindFunction [esym|haskell-emacs-module-tests-add|] funAdd
-  funGetRest <- makeFunction getRest "Just return the &rest argument."
-  bindFunction [esym|haskell-emacs-module-tests-get-rest|] funGetRest
+  bindFunction [esym|haskell-emacs-module-tests-apply2|] =<<
+    makeFunction apply2 "Apply a function twice."
+  bindFunction [esym|haskell-emacs-module-tests-add|] =<<
+    makeFunction add "Add two numbers."
+  bindFunction [esym|haskell-emacs-module-tests-get-rest|] =<<
+    makeFunction getRest "Just return the &rest argument."
+  bindFunction [esym|haskell-emacs-module-tests-append-lots-of-strings|] =<<
+    makeFunction appendLotsOfStrings "Append foo string N times to itself."
   pure True
 
 apply2
@@ -87,3 +94,43 @@ getRest
   => EmacsFunction ('S 'Z) 'Z 'True
 getRest env _req rest = runEmacsM env $
   funcall [esym|vector|] rest
+
+appendLotsOfStrings
+  :: WithCallStack
+  => EmacsFunction ('S 'Z) 'Z 'False
+appendLotsOfStrings env n = runEmacsM env $ do
+  n'     <- extractInt n
+  foo'   <- makeString "foo"
+  empty' <- makeString ""
+  let input = replicate n' (pure foo', "foo")
+      res = appendTree concat2' input
+  traceM $ "input = " ++ show (map snd input)
+  res' <- traverse fst res
+  pure $ fromMaybe empty' res'
+
+concat2'
+  :: (WithCallStack, MonadEmacs m)
+  => (m Emacs.Value, C8.ByteString)
+  -> (m Emacs.Value, C8.ByteString)
+  -> (m Emacs.Value, C8.ByteString)
+concat2' (x, xStr) (y, yStr) =
+  (go, xStr <> yStr)
+  where
+    go = do
+      x' <- x
+      y' <- y
+      funcallPrimitive [esym|garbage-collect|] []
+      traceM $ "xStr = " ++ show (C8.length xStr) ++ ", yStr = " ++ show (C8.length yStr)
+      concat2 x' y'
+
+appendTree :: WithCallStack => (a -> a -> a) -> [a] -> Maybe a
+appendTree f = reduce
+  where
+    go []             = []
+    go xs@[_]         = xs
+    go (x1 : x2 : xs) = f x1 x2 : go xs
+
+    reduce []  = Nothing
+    reduce [x] = Just x
+    reduce xs  = reduce (go xs)
+

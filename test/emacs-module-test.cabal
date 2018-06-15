@@ -39,6 +39,7 @@ foreign-library emacs-module-test
 
   build-depends:
     base >=4.7,
+    bytestring,
     emacs-module,
     safe-exceptions-checked
   hs-source-dirs:

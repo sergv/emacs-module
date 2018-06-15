@@ -37,7 +37,7 @@ module Emacs.Module.Functions
   , setcdr
     -- * Strings
   , addFaceProp
-  , appendStrings
+  , concat2
   ) where
 
 import Control.Monad.Except
@@ -222,12 +222,12 @@ addFaceProp str face = do
   face'    <- intern face
   funcallPrimitive [esym|propertize|] [str, faceSym, face']
 
-{-# INLINE appendStrings #-}
+{-# INLINE concat2 #-}
 -- | Concatenate two strings.
-appendStrings
+concat2
   :: (WithCallStack, MonadEmacs m)
   => Emacs.Value
   -> Emacs.Value
   -> m Emacs.Value
-appendStrings x y =
+concat2 x y =
   funcallPrimitive [esym|concat|] [x, y]

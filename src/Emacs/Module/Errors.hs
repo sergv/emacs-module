@@ -205,7 +205,7 @@ report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
   errSym  <- useSymbolNameAsCString [esym|error|] (Raw.intern env)
   listSym <- useSymbolNameAsCString [esym|list|]  (Raw.intern env)
-  withTextAsCStringLen (format err) $ \(str, len) -> do
+  withTextAsCString0AndLen (format err) $ \str len -> do
     str' <- Raw.makeString env str (fromIntegral len)
     withArrayLen [str'] $ \nargs argsPtr -> do
       errData <- Raw.funcallPrimitive env listSym (fromIntegral nargs) (mkNonNullPtr argsPtr)
@@ -214,8 +214,11 @@ report format env err = do
       -- error is already going on.
       Raw.nonLocalExitSignal env errSym errData
 
-withTextAsCStringLen :: Text -> (CStringLen -> IO a) -> IO a
-withTextAsCStringLen str = C8.useAsCStringLen (TE.encodeUtf8 str)
+withTextAsCString0AndLen :: Text -> (CString -> Int -> IO a) -> IO a
+withTextAsCString0AndLen str f =
+  C8.useAsCString utf8 (\ptr -> f ptr (C8.length utf8))
+  where
+    utf8 = (TE.encodeUtf8 str)
 
 returnNil :: Env -> IO Emacs.Value
 returnNil env =

@@ -327,9 +327,8 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   makeString x =
     checkExitAndRethrowInHaskell' "makeString failed" $
       liftIO' $ \env ->
-        BS.useAsCStringLen x $ \(pStr, size) ->
-          Raw.makeString env pStr (fromIntegral size)
-
+        BS.useAsCString x $ \pStr ->
+          Raw.makeString env pStr (fromIntegral $ BS.length x)
 
   {-# INLINE extractUserPtr #-}
   extractUserPtr x =

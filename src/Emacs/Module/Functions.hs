@@ -28,6 +28,7 @@ module Emacs.Module.Functions
   , extractVector
   , extractVectorWith
   , makeVector
+  , vconcat2
     -- * Lists
   , cons
   , car
@@ -159,6 +160,16 @@ makeVector
   => [Emacs.RawValue]
   -> m Emacs.RawValue
 makeVector = funcallPrimitive [esym|vector|]
+
+{-# INLINE vconcat2 #-}
+-- | Concatenate two vectors.
+vconcat2
+  :: (WithCallStack, MonadEmacs m)
+  => Emacs.RawValue
+  -> Emacs.RawValue
+  -> m Emacs.RawValue
+vconcat2 x y =
+  funcallPrimitive [esym|vconcat|] [x, y]
 
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.

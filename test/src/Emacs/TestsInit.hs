@@ -74,6 +74,8 @@ initialise' = do
     makeFunction getRest "Just return the &rest argument."
   bindFunction [esym|haskell-emacs-module-tests-append-lots-of-strings|] =<<
     makeFunction appendLotsOfStrings "Append foo string N times to itself."
+  bindFunction [esym|haskell-emacs-module-tests-append-lots-of-vectors|] =<<
+    makeFunction appendLotsOfVectors "Append [1 2 3] vector N times to itself."
   pure True
 
 apply2
@@ -108,6 +110,25 @@ appendLotsOfStrings env n = runEmacsM env $ do
   res' <- traverse fst res
   pure $ fromMaybe empty' res'
 
+appendLotsOfVectors
+  :: WithCallStack
+  => EmacsFunction ('S 'Z) 'Z 'False
+appendLotsOfVectors env n = runEmacsM env $ do
+  n'     <- extractInt n
+  one    <- makeInt 1
+  two    <- makeInt 2
+  three  <- makeInt 3
+  test   <- makeVector [one, two, three]
+
+  empty' <- makeVector []
+
+  let input = replicate n' (pure test, [1, 2, 3])
+      res = appendTree vconcat2' input
+  -- traceM $ "input = " ++ show (map snd input)
+  res' <- traverse fst res
+  pure $ fromMaybe empty' res'
+
+
 concat2'
   :: (WithCallStack, MonadEmacs m)
   => (m Emacs.RawValue, C8.ByteString)
@@ -122,6 +143,22 @@ concat2' (x, xStr) (y, yStr) =
       funcallPrimitive [esym|garbage-collect|] []
       traceM $ "xStr = " ++ show (C8.length xStr) ++ ", yStr = " ++ show (C8.length yStr)
       concat2 x' y'
+
+vconcat2'
+  :: (WithCallStack, MonadEmacs m)
+  => (m Emacs.RawValue, [Int])
+  -> (m Emacs.RawValue, [Int])
+  -> (m Emacs.RawValue, [Int])
+vconcat2' (x, xs) (y, ys) =
+  (go, xs <> ys)
+  where
+    go = do
+      x' <- x
+      y' <- y
+      funcallPrimitive [esym|garbage-collect|] []
+      traceM $ "xs = " ++ show (length xs) ++ ", ys = " ++ show (length ys)
+      vconcat2 x' y'
+
 
 appendTree :: WithCallStack => (a -> a -> a) -> [a] -> Maybe a
 appendTree f = reduce

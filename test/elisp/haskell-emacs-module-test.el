@@ -90,6 +90,52 @@
     (haskell-emacs-module-tests-get-rest 1 2 3 "foo" t 5)
     [2 3 "foo" t 5])))
 
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-01 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 0) [])))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-02 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 1) [1 2 3])))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-03 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 2) [1 2 3 1 2 3])))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-04 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 3) [1 2 3 1 2 3 1 2 3])))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-05 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 10)
+                 (apply #'vconcat (custom-repeat 10 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-06 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 100)
+                 (apply #'vconcat (custom-repeat 100 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-07 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 1000)
+                 (apply #'vconcat (custom-repeat 1000 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-08 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 10000)
+                 (apply #'vconcat (custom-repeat 10000 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-09 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 100000)
+                 (apply #'vconcat (custom-repeat 100000 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-10 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 1000000)
+                 (apply #'vconcat (custom-repeat 1000000 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-11 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 10000000)
+                 (apply #'vconcat (custom-repeat 10000000 [1 2 3])))))
+
+(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-12 ()
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 50000000)
+                 (apply #'vconcat (custom-repeat 50000000 [1 2 3])))))
+
+
 (ert-deftest haskell-emacs-module-test/append-lots-of-strings-01 ()
   (should (equal (haskell-emacs-module-tests-append-lots-of-strings 0) "")))
 
@@ -133,7 +179,6 @@
 (ert-deftest haskell-emacs-module-test/append-lots-of-strings-12 ()
   (should (equal (haskell-emacs-module-tests-append-lots-of-strings 50000000)
                  (apply #'concat (custom-repeat 50000000 "foo")))))
-
 
 (provide 'haskell-emacs-module-test)
 

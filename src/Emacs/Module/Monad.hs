@@ -75,7 +75,7 @@ data Environment = Environment
   }
 
 newtype EmacsM s a = EmacsM { unEmacsM :: ReaderT Environment IO a }
-  deriving (Functor, Applicative, Monad, MonadIO, Catch.MonadThrow, Catch.MonadCatch, Catch.MonadMask, MonadBase IO)
+  deriving (Functor, Applicative, Monad, MonadIO, Catch.MonadThrow, Catch.MonadCatch, Catch.MonadMask, MonadBase IO, MonadFix)
 
 instance MonadResource (EmacsM s) where
   liftResourceT action = EmacsM $ do

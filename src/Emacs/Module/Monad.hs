@@ -128,14 +128,6 @@ makeValue' raw = do
   valueReleaseHandle <- register (Raw.freeGlobalRef env valuePayload)
   pure Value {valuePayload, valueReleaseHandle}
 
-
-instance Throws EmacsError => MonadError EmacsError (EmacsM s) where
-  throwError = EmacsM . liftIO . Checked.throw
-  catchError (EmacsM action) handler = EmacsM $ do
-    e <- ask
-    liftIO $
-      Checked.catch (runReaderT action e) ((`runReaderT` e) . unEmacsM . handler)
-
 {-# INLINABLE unpackEnumFuncallExit #-}
 unpackEnumFuncallExit
   :: (MonadThrow m, Throws EmacsInternalError, WithCallStack)

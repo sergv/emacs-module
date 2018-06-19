@@ -40,6 +40,7 @@ module Emacs.Module.Functions
     -- * Strings
   , addFaceProp
   , concat2
+  , valueToText
 
     -- * Reexports
   , MonadMask
@@ -256,3 +257,10 @@ concat2
   -> m s (Value s)
 concat2 x y =
   funcallPrimitive [esym|concat|] [x, y]
+
+valueToText
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s Text
+valueToText x =
+  extractText =<< funcallPrimitive [esym|prin1-to-string|] [x]

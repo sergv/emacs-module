@@ -10,6 +10,7 @@
 
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
@@ -29,12 +30,14 @@ module Emacs.Module.Monad
   ) where
 
 import qualified Control.Exception as Exception
+import qualified Control.Monad.Catch as Catch
 import Control.Exception.Safe.Checked (MonadThrow, Throws)
 import qualified Control.Exception.Safe.Checked as Checked
 import Control.Monad.Base
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
+import Control.Monad.Trans.Resource as Resource
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
@@ -44,6 +47,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
 import Data.Text.Prettyprint.Doc
+import Data.Traversable
 import Data.Void
 import Foreign (Storable(..))
 import Foreign.C.Types
@@ -55,44 +59,77 @@ import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.NonNullPtr
 import qualified Data.Emacs.Module.Raw.Env as Raw
 import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType, exportToEmacs)
+import Data.Emacs.Module.Raw.Value (RawValue, GlobalRef(..))
 import Data.Emacs.Module.SymbolName (SymbolName, useSymbolNameAsCString)
 import Data.Emacs.Module.SymbolName.TH
-import qualified Data.Emacs.Module.Value as Emacs
+import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 import Emacs.Module.Monad.Class
 
 data Environment = Environment
-  { eEnv       :: !Env
-  , eErrorSym  :: !(NonNullPtr Emacs.RawValue)
-  , eErrorData :: !(NonNullPtr Emacs.RawValue)
+  { eEnv           :: !Env
+  , eErrorSym      :: !(NonNullPtr RawValue)
+  , eErrorData     :: !(NonNullPtr RawValue)
+  , eResourceState :: !Resource.InternalState
   }
 
-newtype EmacsM a = EmacsM { unEmacsM :: ReaderT Environment IO a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadBase IO)
+newtype EmacsM s a = EmacsM { unEmacsM :: ReaderT Environment IO a }
+  deriving (Functor, Applicative, Monad, MonadIO, Catch.MonadThrow, Catch.MonadCatch, Catch.MonadMask, MonadBase IO)
 
-instance MonadBaseControl IO EmacsM where
-  type StM EmacsM a = StM (ReaderT Environment IO) a
+instance MonadResource (EmacsM s) where
+  liftResourceT action = EmacsM $ do
+    resState <- asks eResourceState
+    liftBase $ runInternalState action resState
+
+instance MonadBaseControl IO (EmacsM s) where
+  type StM (EmacsM s) a = StM (ReaderT Environment IO) a
   {-# INLINE liftBaseWith #-}
   liftBaseWith f = EmacsM (liftBaseWith (\runInBase -> f (runInBase . unEmacsM)))
   {-# INLINE restoreM #-}
   restoreM x = EmacsM (restoreM x)
 
-runEmacsM :: Env -> EmacsM a -> IO a
+runEmacsM
+  :: Env
+  -> (forall s. EmacsM s a)
+  -> IO a
 runEmacsM env (EmacsM action) =
   allocaNonNull $ \pErr ->
     allocaNonNull $ \pData ->
-      runReaderT action $ Environment
-        { eEnv       = env
-        , eErrorSym  = pErr
-        , eErrorData = pData
-        }
+      Exception.bracket
+        Resource.createInternalState
+        Resource.closeInternalState
+        (\eResourceState ->
+          runReaderT action Environment
+            { eEnv       = env
+            , eErrorSym  = pErr
+            , eErrorData = pData
+            , eResourceState
+            })
+
+{-# INLINE getRawValue #-}
+getRawValue :: Value s -> RawValue
+getRawValue = unGlobalRef . valuePayload
 
 {-# INLINE liftIO' #-}
-liftIO' :: (Env -> IO a) -> EmacsM a
+liftIO' :: (Env -> IO a) -> EmacsM s a
 liftIO' f = EmacsM $ asks eEnv >>= liftIO . f
 
-instance Throws EmacsError => MonadError EmacsError EmacsM where
+{-# INLINABLE makeValue' #-}
+makeValue'
+  :: (WithCallStack, Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow)
+  => RawValue
+  -> EmacsM s (Value s)
+makeValue' raw = do
+  env <- EmacsM $ asks eEnv
+  valuePayload <-
+    checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
+      Raw.makeGlobalRef env raw
+  valueReleaseHandle <- register (Raw.freeGlobalRef env valuePayload)
+  pure Value {valuePayload, valueReleaseHandle}
+
+
+instance Throws EmacsError => MonadError EmacsError (EmacsM s) where
   throwError = EmacsM . liftIO . Checked.throw
   catchError (EmacsM action) handler = EmacsM $ do
     e <- ask
@@ -101,7 +138,7 @@ instance Throws EmacsError => MonadError EmacsError EmacsM where
 
 {-# INLINABLE unpackEnumFuncallExit #-}
 unpackEnumFuncallExit
-  :: (MonadThrow m, Throws EmacsInternalError)
+  :: (MonadThrow m, Throws EmacsInternalError, WithCallStack)
   => Raw.EnumFuncallExit -> m (FuncallExit ())
 unpackEnumFuncallExit (Raw.EnumFuncallExit (CInt x)) =
   case funcallExitFromNum x of
@@ -109,26 +146,47 @@ unpackEnumFuncallExit (Raw.EnumFuncallExit (CInt x)) =
       "Unknown value of enum emacs_funcall_exit:" <+> pretty x
     Just y -> pure y
 
+nonLocalExitGet'
+  :: (WithCallStack, Throws EmacsInternalError)
+  => EmacsM s (FuncallExit (RawValue, RawValue))
+nonLocalExitGet' = do
+  Environment{eEnv, eErrorSym, eErrorData} <- EmacsM ask
+  liftIO $ do
+    x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet eEnv eErrorSym eErrorData
+    for x $ \_ ->
+      (,) <$> (peek (unNonNullPtr eErrorSym)) <*> (peek (unNonNullPtr eErrorData))
+
+{-# INLINE nonLocalExitClear' #-}
+nonLocalExitClear' :: WithCallStack => EmacsM s ()
+nonLocalExitClear' = liftIO' Raw.nonLocalExitClear
+
+{-# INLINE nonLocalExitCheck' #-}
+nonLocalExitCheck'
+  :: (WithCallStack, Throws EmacsInternalError)
+  => EmacsM s (FuncallExit ())
+nonLocalExitCheck' = liftIO' (unpackEnumFuncallExit <=< Raw.nonLocalExitCheck)
+
+
 checkExitAndRethrowInHaskell
-  :: (WithCallStack, Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError)
+  :: (WithCallStack, Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow)
   => Doc Void -- ^ Error message
-  -> EmacsM ()
+  -> EmacsM s ()
 checkExitAndRethrowInHaskell errMsg = do
-  x <- nonLocalExitGet
+  x <- nonLocalExitGet'
   case x of
     FuncallExitReturn            -> pure ()
     FuncallExitSignal (sym, dat) -> do
-      nonLocalExitClear
+      nonLocalExitClear'
       dat'      <- funcallPrimitiveUnchecked [esym|cons|] [sym, dat]
       formatted <- funcallPrimitiveUnchecked [esym|prin1-to-string|] [dat']
-      formatRes <- nonLocalExitCheck
+      formatRes <- nonLocalExitCheck'
       case formatRes of
         FuncallExitSignal{} -> do
-          nonLocalExitClear
+          nonLocalExitClear'
           Checked.throw $ mkEmacsInternalError $
             "Failed to format Emacs error data while processing following error:" <> line <> errMsg
         FuncallExitThrow{}  -> do
-          nonLocalExitClear
+          nonLocalExitClear'
           Checked.throw $ mkEmacsInternalError $
             "Failed to format Emacs error data while processing following error:" <> line <> errMsg
         FuncallExitReturn   -> do
@@ -140,7 +198,7 @@ checkExitAndRethrowInHaskell errMsg = do
       -- NB do not clear local exit flag - we, hopefully, should exit
       -- now by unwinding full Haskell stack and the flag should be
       -- reported all the way to Emacs to show a meaningful error or
-      -- do the catch.
+      -- do a catch in elisp.
       Checked.throw EmacsThrow
         { emacsThrowTag   = tag
         , emacsThrowValue = value
@@ -148,28 +206,28 @@ checkExitAndRethrowInHaskell errMsg = do
 
 {-# INLINE checkExitAndRethrowInHaskell' #-}
 checkExitAndRethrowInHaskell'
-  :: (WithCallStack, Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError)
+  :: (WithCallStack, Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow)
   => Doc Void -- ^ Error message
-  -> EmacsM a
-  -> EmacsM a
+  -> EmacsM s a
+  -> EmacsM s a
 checkExitAndRethrowInHaskell' errMsg action =
   action <* checkExitAndRethrowInHaskell errMsg
 
 {-# INLINE internUnchecked #-}
-internUnchecked :: SymbolName -> EmacsM Emacs.RawValue
+internUnchecked :: SymbolName -> EmacsM s RawValue
 internUnchecked sym =
   liftIO' $ \env -> useSymbolNameAsCString sym $ Raw.intern env
 
 {-# INLINE funcallUnchecked #-}
-funcallUnchecked :: SymbolName -> [Emacs.RawValue] -> EmacsM Emacs.RawValue
-funcallUnchecked name args =
+funcallUnchecked :: SymbolName -> [RawValue] -> EmacsM s RawValue
+funcallUnchecked name args = do
   liftIO' $ \env -> do
     fun <- useSymbolNameAsCString name $ Raw.intern env
     withArrayLen args $ \n args' ->
       Raw.funcall env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE funcallPrimitiveUnchecked #-}
-funcallPrimitiveUnchecked :: SymbolName -> [Emacs.RawValue] -> EmacsM Emacs.RawValue
+funcallPrimitiveUnchecked :: SymbolName -> [RawValue] -> EmacsM s RawValue
 funcallPrimitiveUnchecked name args =
   liftIO' $ \env -> do
     fun <- useSymbolNameAsCString name $ Raw.intern env
@@ -177,19 +235,19 @@ funcallPrimitiveUnchecked name args =
       Raw.funcallPrimitive env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE typeOfUnchecked #-}
-typeOfUnchecked :: Emacs.RawValue -> EmacsM Emacs.RawValue
+typeOfUnchecked :: Value s -> EmacsM s RawValue
 typeOfUnchecked x =
-  liftIO' $ \env -> Raw.typeOf env x
+  liftIO' $ \env -> Raw.typeOf env (getRawValue x)
 
 extractTextUtf8Unchecked
   :: (WithCallStack, Throws EmacsInternalError)
-  => Emacs.RawValue -> EmacsM T.Text
+  => RawValue -> EmacsM s T.Text
 extractTextUtf8Unchecked =
   fmap (TE.decodeUtf8With TE.lenientDecode) . extractStringUnchecked
 
 extractStringUnchecked
   :: (WithCallStack, Throws EmacsInternalError)
-  => Emacs.RawValue -> EmacsM BS.ByteString
+  => RawValue -> EmacsM s BS.ByteString
 extractStringUnchecked x = do
   liftIO' $ \env ->
     allocaNonNull $ \pSize -> do
@@ -212,51 +270,63 @@ extractStringUnchecked x = do
 instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => MonadEmacs EmacsM where
 
   {-# INLINE nonLocalExitCheck #-}
-  nonLocalExitCheck =
-    liftIO' (unpackEnumFuncallExit <=< Raw.nonLocalExitCheck)
+  nonLocalExitCheck = nonLocalExitCheck'
 
-  nonLocalExitGet = EmacsM $ do
-    Environment{eEnv, eErrorSym, eErrorData} <- ask
-    liftIO $ do
-      x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet eEnv eErrorSym eErrorData
-      traverse (\_ -> (,) <$> peek (unNonNullPtr eErrorSym) <*> peek (unNonNullPtr eErrorData)) x
+  {-# INLINE nonLocalExitGet #-}
+  nonLocalExitGet = do
+    z <- nonLocalExitGet'
+    for z $ \(x, y) -> (,) <$> makeValue x <*> makeValue y
 
   nonLocalExitSignal sym errData = do
-    errData' <- funcall [esym|list|] errData
-    liftIO' $ \env -> Raw.nonLocalExitSignal env sym errData'
+    errData' <- funcallPrimitiveUnchecked [esym|list|] (map getRawValue errData)
+    liftIO' $ \env -> Raw.nonLocalExitSignal env (getRawValue sym) errData'
 
   {-# INLINE nonLocalExitThrow #-}
-  nonLocalExitThrow tag errData =
-    liftIO' $ \env -> Raw.nonLocalExitThrow env tag errData
+  nonLocalExitThrow tag errData = do
+    liftIO' $ \env -> Raw.nonLocalExitThrow env tag' errData'
+    Checked.throw EmacsThrow
+      { emacsThrowTag   = tag'
+      , emacsThrowValue = errData'
+      }
+    where
+      tag'     = getRawValue tag
+      errData' = getRawValue errData
 
   {-# INLINE nonLocalExitClear #-}
-  nonLocalExitClear =
-    liftIO' Raw.nonLocalExitClear
+  nonLocalExitClear = nonLocalExitClear'
 
+  -- {-# INLINE makeGlobalRef #-}
+  -- makeGlobalRef x =
+  --   checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
+  --     liftIO' (\env -> Raw.makeGlobalRef env x)
+  --
+  -- {-# INLINE freeGlobalRef #-}
+  -- freeGlobalRef x =
+  --   checkExitAndRethrowInHaskell' "freeGlobalRef failed" $
+  --     liftIO' (\env -> Raw.freeGlobalRef env x)
 
-  {-# INLINE makeGlobalRef #-}
-  makeGlobalRef x =
-    checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
-      liftIO' (\env -> Raw.makeGlobalRef env x)
+  {-# INLINE makeValue #-}
+  makeValue :: WithCallStack => RawValue -> EmacsM s (Value s)
+  makeValue = makeValue'
 
-  {-# INLINE freeGlobalRef #-}
-  freeGlobalRef x =
-    checkExitAndRethrowInHaskell' "freeGlobalRef failed" $
-      liftIO' (\env -> Raw.freeGlobalRef env x)
+  {-# INLINE freeValue #-}
+  freeValue :: WithCallStack => Value s -> EmacsM s ()
+  freeValue = Resource.release . valueReleaseHandle
 
   {-# INLINE makeFunctionExtra #-}
   makeFunctionExtra
-    :: forall req opt rest extra. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => EmacsFunctionExtra extra req opt rest
+    :: forall req opt rest extra s. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
+    => (forall s'. EmacsFunctionExtra req opt rest extra s' EmacsM)
     -> C8.ByteString
     -> Ptr extra
-    -> EmacsM Emacs.RawValue
+    -> EmacsM s (Value s)
   makeFunctionExtra emacsFun docs extraPtr =
-    checkExitAndRethrowInHaskell' "makeFunctionExtra failed" $
-      liftIO' $ \env ->
+    makeValue =<<
+    checkExitAndRethrowInHaskell' "makeFunctionExtra failed"
+      (liftIO' $ \env ->
         C8.useAsCString docs $ \docs' -> do
           implementation' <- exportToEmacs implementation
-          Raw.makeFunction env minArity maxArity implementation' docs' extraPtr
+          Raw.makeFunction env minArity maxArity implementation' docs' extraPtr)
     where
       (minArity, maxArity) = arities (Proxy @req) (Proxy @opt) (Proxy @rest)
 
@@ -265,107 +335,118 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
         Checked.uncheck (Proxy @UserError) $
           Exception.handle (reportAnyErrorToEmacs env) $
             Checked.handle (reportEmacsThrowToEmacs env) $
-              (supplyEmacsArgs (fromIntegral nargs) argsPtr (emacsFun env extraPtr'))
+              runEmacsM env $ do
+                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeValue (\args -> emacsFun args extraPtr')
+                pure $! unGlobalRef $! valuePayload v
 
   {-# INLINE funcall #-}
   funcall name args =
-    checkExitAndRethrowInHaskell' ("funcall" <+> squotes (pretty name) <+> "failed") $
-      funcallUnchecked name args
+    makeValue =<<
+    checkExitAndRethrowInHaskell' ("funcall" <+> squotes (pretty name) <+> "failed")
+      (funcallUnchecked name (map getRawValue args))
 
   {-# INLINE funcallPrimitive #-}
   funcallPrimitive name args =
-    checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed") $
-      funcallPrimitiveUnchecked name args
+    makeValue =<<
+    checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed")
+      (funcallPrimitiveUnchecked name (map getRawValue args))
 
   {-# INLINE intern #-}
   intern sym =
-    checkExitAndRethrowInHaskell' ("intern of" <+> squotes (pretty sym) <+> "failed") $
-      internUnchecked sym
+    makeValue =<<
+    checkExitAndRethrowInHaskell' ("intern of" <+> squotes (pretty sym) <+> "failed")
+      (internUnchecked sym)
 
   {-# INLINE typeOf #-}
   typeOf x =
-    checkExitAndRethrowInHaskell' "typeOf failed" $
-      typeOfUnchecked x
+    makeValue =<<
+    checkExitAndRethrowInHaskell' "typeOf failed"
+      (typeOfUnchecked x)
 
   {-# INLINE isNotNil #-}
   isNotNil x =
-    checkExitAndRethrowInHaskell' "isNotNil failed" $
-      liftIO' $ \env -> Raw.isTruthy <$> Raw.isNotNil env x
+    checkExitAndRethrowInHaskell' "isNotNil failed"
+      (liftIO' $ \env -> Raw.isTruthy <$> Raw.isNotNil env (getRawValue x))
 
   {-# INLINE eq #-}
   eq x y =
-    checkExitAndRethrowInHaskell' "eq failed" $
-      liftIO' $ \env -> Raw.isTruthy <$> Raw.eq env x y
+    checkExitAndRethrowInHaskell' "eq failed"
+      (liftIO' $ \env -> Raw.isTruthy <$> Raw.eq env (getRawValue x) (getRawValue y))
 
 
   {-# INLINE extractWideInteger #-}
   extractWideInteger x =
-    checkExitAndRethrowInHaskell' "extractWideInteger failed" $
-      liftIO' $ \env -> coerce (Raw.extractInteger env x :: IO CIntMax)
+    checkExitAndRethrowInHaskell' "extractWideInteger failed"
+      (liftIO' $ \env -> coerce (Raw.extractInteger env (getRawValue x) :: IO CIntMax))
 
   {-# INLINE makeWideInteger #-}
   makeWideInteger x =
-    checkExitAndRethrowInHaskell' ("makeWideInteger of" <+> pretty x <+> "failed") $
-      liftIO' $ \env -> Raw.makeInteger env (CIntMax x)
+    makeValue =<<
+    checkExitAndRethrowInHaskell' ("makeWideInteger of" <+> pretty x <+> "failed")
+      (liftIO' $ \env -> Raw.makeInteger env (CIntMax x))
 
   {-# INLINE extractDouble #-}
   extractDouble x =
-    checkExitAndRethrowInHaskell' "extractDouble failed" $
-      liftIO' $ \env -> coerce (Raw.extractFloat env x :: IO CDouble)
+    checkExitAndRethrowInHaskell' "extractDouble failed"
+      (liftIO' $ \env -> coerce (Raw.extractFloat env (getRawValue x) :: IO CDouble))
 
   {-# INLINE makeDouble #-}
   makeDouble x =
-    checkExitAndRethrowInHaskell' ("makeDouble" <+> pretty x <+> "failed") $
-      liftIO' $ \env -> Raw.makeFloat env (CDouble x)
+    makeValue =<<
+    checkExitAndRethrowInHaskell' ("makeDouble" <+> pretty x <+> "failed")
+      (liftIO' $ \env -> Raw.makeFloat env (CDouble x))
 
   {-# INLINE extractString #-}
   extractString x =
     checkExitAndRethrowInHaskell' "extractString failed" $
-      extractStringUnchecked x
+      extractStringUnchecked (getRawValue x)
 
   {-# INLINE makeString #-}
   makeString x =
-    checkExitAndRethrowInHaskell' "makeString failed" $
-      liftIO' $ \env ->
+    makeValue =<<
+    checkExitAndRethrowInHaskell' "makeString failed"
+      (liftIO' $ \env ->
         BS.useAsCString x $ \pStr ->
-          Raw.makeString env pStr (fromIntegral $ BS.length x)
+          Raw.makeString env pStr (fromIntegral (BS.length x)))
 
   {-# INLINE extractUserPtr #-}
   extractUserPtr x =
     checkExitAndRethrowInHaskell' "extractUserPtr failed" $
-      liftIO' $ \env -> Raw.getUserPtr env x
+      liftIO' $ \env -> Raw.getUserPtr env $ getRawValue x
 
   {-# INLINE makeUserPtr #-}
   makeUserPtr finaliser ptr =
-    checkExitAndRethrowInHaskell' "makeUserPtr failed" $
-      liftIO' $ \env -> Raw.makeUserPtr env finaliser ptr
+    makeValue =<<
+    checkExitAndRethrowInHaskell' "makeUserPtr failed"
+      (liftIO' $ \env -> Raw.makeUserPtr env finaliser ptr)
 
   {-# INLINE assignUserPtr #-}
   assignUserPtr dest ptr =
     checkExitAndRethrowInHaskell' "assignUserPtr failed" $
-      liftIO' $ \env -> Raw.setUserPtr env dest ptr
+      liftIO' $ \env -> Raw.setUserPtr env (getRawValue dest) ptr
 
   {-# INLINE extractUserPtrFinaliser #-}
   extractUserPtrFinaliser x =
     checkExitAndRethrowInHaskell' "extractUserPtrFinaliser failed" $
-      liftIO' $ \env -> Raw.getUserFinaliser env x
+      liftIO' $ \env -> Raw.getUserFinaliser env $ getRawValue x
 
   {-# INLINE assignUserPtrFinaliser #-}
   assignUserPtrFinaliser x finaliser =
     checkExitAndRethrowInHaskell' "assignUserPtrFinaliser failed" $
-      liftIO' $ \env -> Raw.setUserFinaliser env x finaliser
+      liftIO' $ \env -> Raw.setUserFinaliser env (getRawValue x) finaliser
 
   {-# INLINE vecGet #-}
   vecGet vec n =
-    checkExitAndRethrowInHaskell' "vecGet failed" $
-      liftIO' $ \env -> Raw.vecGet env vec (fromIntegral n)
+    makeValue =<<
+    checkExitAndRethrowInHaskell' "vecGet failed"
+      (liftIO' $ \env -> Raw.vecGet env (getRawValue vec) (fromIntegral n))
 
   {-# INLINE vecSet #-}
   vecSet vec n x =
     checkExitAndRethrowInHaskell' "vecSet failed" $
-      liftIO' $ \env -> Raw.vecSet env vec (fromIntegral n) x
+      liftIO' $ \env -> Raw.vecSet env (getRawValue vec) (fromIntegral n) (getRawValue x)
 
   {-# INLINE vecSize  #-}
   vecSize vec =
     checkExitAndRethrowInHaskell' "vecSize failed" $
-      liftIO' $ \env -> fromIntegral <$> Raw.vecSize env vec
+      liftIO' $ \env -> fromIntegral <$> Raw.vecSize env (getRawValue vec)

@@ -24,6 +24,7 @@ module Emacs.Module.Functions
   , makeText
   , extractBool
   , makeBool
+  , withCleanup
     -- * Vectors
   , extractVector
   , extractVectorWith
@@ -39,8 +40,12 @@ module Emacs.Module.Functions
     -- * Strings
   , addFaceProp
   , concat2
+
+    -- * Reexports
+  , MonadMask
   ) where
 
+import Control.Monad.Catch
 import Control.Monad.Except
 
 import qualified Data.ByteString.Char8 as C8
@@ -52,7 +57,7 @@ import Foreign.Ptr (nullPtr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.SymbolName (SymbolName)
 import Data.Emacs.Module.SymbolName.TH
-import qualified Data.Emacs.Module.Value as Emacs
+import Data.Emacs.Module.Value
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
 
@@ -60,10 +65,10 @@ import Emacs.Module.Monad.Class
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
 bindFunction
-  :: (WithCallStack, MonadEmacs m)
-  => SymbolName     -- ^ Name
-  -> Emacs.RawValue -- ^ Function value
-  -> m ()
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => SymbolName -- ^ Name
+  -> Value s    -- ^ Function value
+  -> m s ()
 bindFunction name def = do
   name' <- intern name
   void $ funcallPrimitive [esym|fset|] [name', def]
@@ -75,10 +80,10 @@ bindFunction name def = do
 --
 -- This is a simplified version of 'makeFunctionExtra'.
 makeFunction
-  :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest, MonadEmacs m)
-  => EmacsFunction req opt rest
+  :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest, MonadEmacs m, Monad (m s))
+  => (forall s'. EmacsFunction req opt rest s' m)
   -> C8.ByteString
-  -> m Emacs.RawValue
+  -> m s (Value s)
 makeFunction f doc =
   makeFunctionExtra (\env _extraPtr -> f env) doc nullPtr
 
@@ -86,9 +91,9 @@ makeFunction f doc =
 -- | Signal to Emacs that certain feature is being provided. Returns provided
 -- symbol.
 provide
-  :: (WithCallStack, MonadEmacs m)
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
   => SymbolName -- ^ Feature to provide
-  -> m Emacs.RawValue
+  -> m s (Value s)
 provide sym = do
   sym' <- intern sym
   funcallPrimitive [esym|provide|] [sym']
@@ -99,7 +104,7 @@ provide sym = do
 -- This function will fail if Emacs value is not an integer or
 -- contains value too big to fit into 'Int' on current architecture.
 extractInt
-  :: (WithCallStack, MonadEmacs m) => Emacs.RawValue -> m Int
+  :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s Int
 extractInt x = do
   y <- extractWideInteger x
   emacsAssert
@@ -110,33 +115,42 @@ extractInt x = do
 {-# INLINE makeInt #-}
 -- | Pack an 'Int' integer for Emacs.
 makeInt
-  :: (WithCallStack, MonadEmacs m) => Int -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s)) => Int -> m s (Value s)
 makeInt = makeWideInteger . fromIntegral
 
 {-# INLINE extractText #-}
 -- | Extract string contents from an Emacs value.
-extractText :: (WithCallStack, MonadEmacs m) => Emacs.RawValue -> m Text
+extractText :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s Text
 extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
 
 {-# INLINE makeText #-}
 -- | Convert a Text into an Emacs string value.
-makeText :: (WithCallStack, MonadEmacs m) => Text -> m Emacs.RawValue
+makeText :: (WithCallStack, MonadEmacs m, Monad (m s)) => Text -> m s (Value s)
 makeText = makeString . TE.encodeUtf8
 
 {-# INLINE extractBool #-}
 -- | Extract a boolean from an Emacs value.
-extractBool :: (WithCallStack, MonadEmacs m) => Emacs.RawValue -> m Bool
+extractBool :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s Bool
 extractBool = isNotNil
 
 {-# INLINE makeBool #-}
 -- | Convert a Bool into an Emacs string value.
-makeBool :: (WithCallStack, MonadEmacs m) => Bool -> m Emacs.RawValue
+makeBool :: (WithCallStack, MonadEmacs m, Monad (m s)) => Bool -> m s (Value s)
 makeBool b = intern (if b then [esym|t|] else [esym|nil|])
+
+{-# INLINE withCleanup #-}
+-- | Feed a value into a function and clean it up afterwards.
+withCleanup
+  :: (WithCallStack, MonadMask (m s), MonadEmacs m, Monad (m s))
+  => Value s
+  -> (Value s -> m s a)
+  -> m s a
+withCleanup x f = f x `finally` freeValue x
 
 {-# INLINABLE extractVector #-}
 -- | Get all elements form an Emacs vector.
 extractVector
-  :: (WithCallStack, MonadEmacs m) => Emacs.RawValue -> m [Emacs.RawValue]
+  :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s [Value s]
 extractVector xs = do
   n <- vecSize xs
   traverse (vecGet xs) [0..n - 1]
@@ -145,10 +159,10 @@ extractVector xs = do
 -- | Get all elements form an Emacs vector using specific function to
 -- convert elements.
 extractVectorWith
-  :: (WithCallStack, MonadEmacs m)
-  => (Emacs.RawValue -> m a)
-  -> Emacs.RawValue
-  -> m [a]
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => (Value s -> m s a)
+  -> Value s
+  -> m s [a]
 extractVectorWith f xs = do
   n <- vecSize xs
   traverse (f <=< vecGet xs) [0..n - 1]
@@ -156,78 +170,78 @@ extractVectorWith f xs = do
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.
 makeVector
-  :: (WithCallStack, MonadEmacs m)
-  => [Emacs.RawValue]
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => [Value s]
+  -> m s (Value s)
 makeVector = funcallPrimitive [esym|vector|]
 
 {-# INLINE vconcat2 #-}
 -- | Concatenate two vectors.
 vconcat2
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue
-  -> Emacs.RawValue
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> Value s
+  -> m s (Value s)
 vconcat2 x y =
   funcallPrimitive [esym|vconcat|] [x, y]
 
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.
 cons
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue -- ^ car
-  -> Emacs.RawValue -- ^ cdr
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s -- ^ car
+  -> Value s -- ^ cdr
+  -> m s (Value s)
 cons x y = funcallPrimitive [esym|cons|] [x, y]
 
 {-# INLINE car #-}
 -- | Take first element of a pair.
 car
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s (Value s)
 car = funcallPrimitive [esym|car|] . (: [])
 
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
 cdr
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s (Value s)
 cdr = funcallPrimitive [esym|cdr|] . (: [])
 
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.
 nil
-  :: (WithCallStack, MonadEmacs m)
-  => m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => m s (Value s)
 nil = intern [esym|nil|]
 
 {-# INLINE setcar #-}
 -- | Mutate first element of a cons pair.
 setcar
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue -- ^ Cons pair
-  -> Emacs.RawValue -- ^ New value
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s -- ^ Cons pair
+  -> Value s -- ^ New value
+  -> m s (Value s)
 setcar x y = funcallPrimitive [esym|setcar|] [x, y]
 
 {-# INLINE setcdr #-}
 -- | Mutate second element of a cons pair.
 setcdr
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue -- ^ Cons pair
-  -> Emacs.RawValue -- ^ New value
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s -- ^ Cons pair
+  -> Value s -- ^ New value
+  -> m s (Value s)
 setcdr x y = funcallPrimitive [esym|setcdr|] [x, y]
 
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.
 addFaceProp
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue   -- ^ String to add face to
-  -> SymbolName       -- ^ Face name
-  -> m Emacs.RawValue -- ^ Propertised string
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s       -- ^ String to add face to
+  -> SymbolName    -- ^ Face name
+  -> m s (Value s) -- ^ Propertised string
 addFaceProp str face = do
   faceSym  <- intern [esym|face|]
   face'    <- intern face
@@ -236,9 +250,9 @@ addFaceProp str face = do
 {-# INLINE concat2 #-}
 -- | Concatenate two strings.
 concat2
-  :: (WithCallStack, MonadEmacs m)
-  => Emacs.RawValue
-  -> Emacs.RawValue
-  -> m Emacs.RawValue
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> Value s
+  -> m s (Value s)
 concat2 x y =
   funcallPrimitive [esym|concat|] [x, y]

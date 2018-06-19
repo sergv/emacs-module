@@ -12,7 +12,10 @@ module Data.Emacs.Module.Raw.Value (RawValue(..), GlobalRef(..)) where
 
 import Foreign
 
--- | Not a real pointer because emacs values are not really pointers. That is,
+-- | Basic handle on an Emacs value. Can be GC'ed after any call into Emacs.
+-- To overcome that, use 'ValueGC'.
+--
+-- Not a real pointer because emacs values are not really pointers. That is,
 -- they're completely opaque.
 newtype RawValue = RawValue { unRawValue :: Ptr RawValue }
   deriving (Storable)

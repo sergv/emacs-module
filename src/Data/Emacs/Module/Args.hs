@@ -24,11 +24,20 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
+{-# LANGUAGE PolyKinds     #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Data.Emacs.Module.Args
   ( Nat(..)
   , EmacsArgs
   , EmacsInvocation(..)
   , GetArities(..)
+
+    -- * Argument inference
+  , R(..)
+  , O(..)
+  , Rest(..)
+  , Stop(..)
   ) where
 
   -- ( Nat(..)
@@ -37,7 +46,7 @@ module Data.Emacs.Module.Args
   -- , GetArgs(..)
   -- ) where
 
--- import Control.Monad.Base
+import Control.Monad.Base
 
 import Data.Kind
 import Data.Proxy
@@ -45,7 +54,7 @@ import Foreign
 import Foreign.C.Types (CPtrdiff)
 
 import Data.Emacs.Module.Raw.Env (variadicFunctionArgs)
-import qualified Data.Emacs.Module.Value as Emacs
+import Data.Emacs.Module.Raw.Value
 
 data Nat = Z | S Nat
 
@@ -61,65 +70,106 @@ instance forall n. NatValue n => NatValue ('S n) where
   natValue _ = 1 + natValue (Proxy @n)
 
 -- type family EmacsArgs' (req :: Nat) (m :: Type -> Type) (a :: Type) = (r :: Type) | r -> req m a where
---   EmacsArgs' ('S n) m a = Emacs.RawValue       -> EmacsArgs' n  m a
---   -- EmacsArgs 'Z     m a = Maybe Emacs.RawValue -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [Emacs.RawValue]     -> m a
+--   EmacsArgs' ('S n) m a = RawValue       -> EmacsArgs' n  m a
+--   -- EmacsArgs 'Z     m a = Maybe RawValue -> EmacsArgs' 'Z k   rest m a
+--   -- EmacsArgs 'Z     m a = [RawValue]     -> m a
 --   EmacsArgs' 'Z     m a = m a
 
 -- type family EmacsArgs' (req :: Nat) (a :: Type) = (r :: Type) | r -> req
 --
--- type instance EmacsArgs' ('S n) a = Emacs.RawValue -> EmacsArgs' n a
---   -- EmacsArgs 'Z     m a = Maybe Emacs.RawValue -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [Emacs.RawValue]     -> m a
+-- type instance EmacsArgs' ('S n) a = RawValue -> EmacsArgs' n a
+--   -- EmacsArgs 'Z     m a = Maybe RawValue -> EmacsArgs' 'Z k   rest m a
+--   -- EmacsArgs 'Z     m a = [RawValue]     -> m a
 -- type instance EmacsArgs' 'Z     a = IO a
 
+-- | Required argument.
+data R a b = R !a !b
 
-type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (a :: Type) = (r :: Type) | r -> req opt rest where
-  EmacsArgs ('S n) opt    rest   a = Emacs.RawValue       -> EmacsArgs n  opt rest a
-  EmacsArgs 'Z     ('S k) rest   a = Maybe Emacs.RawValue -> EmacsArgs 'Z k   rest a
-  EmacsArgs 'Z     'Z     'True  a = [Emacs.RawValue]     -> IO a
-  EmacsArgs 'Z     'Z     'False a = IO a
+-- | Optional argument.
+data O a b = O !(Maybe a) !b
+
+-- | All other arguments as a list.
+newtype Rest a = Rest [a]
+
+-- | No more arguments.
+data Stop a = Stop
+
+type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (a :: Type) = (r :: Type) | r -> req opt rest a where
+  EmacsArgs ('S n) opt    rest   a = R a (EmacsArgs n  opt rest a)
+  EmacsArgs 'Z     ('S k) rest   a = O a (EmacsArgs 'Z k   rest a)
+  EmacsArgs 'Z     'Z     'True  a = Rest a
+  EmacsArgs 'Z     'Z     'False a = Stop a
+
+-- type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (s :: Type) (a :: Type) = (r :: Type) | r -> req opt rest where
+--   EmacsArgs ('S n) opt    rest   s a = Value s         -> EmacsArgs n  opt rest s a
+--   EmacsArgs 'Z     ('S k) rest   s a = Maybe (Value s) -> EmacsArgs 'Z k   rest s a
+--   EmacsArgs 'Z     'Z     'True  s a = [Value s]       -> IO a
+--   EmacsArgs 'Z     'Z     'False s a = IO a
 
 class EmacsInvocation req opt rest where
   supplyEmacsArgs
-    :: Int
-    -> Ptr Emacs.RawValue
-    -> EmacsArgs req opt rest a
-    -> IO a
+    :: MonadBase IO m
+    => Int
+    -> Ptr RawValue
+    -> (RawValue -> m a)
+    -> (EmacsArgs req opt rest a -> m b)
+    -> m b
 
 instance EmacsInvocation 'Z 'Z 'False where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs _nargs _startPtr f = f
+  supplyEmacsArgs _nargs _startPtr _mkInput f = f Stop
 
 instance EmacsInvocation 'Z 'Z 'True where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> ([Emacs.RawValue] -> IO a) -> IO a
-  supplyEmacsArgs nargs startPtr f =
+  supplyEmacsArgs
+    :: MonadBase IO m
+    => Int
+    -> Ptr RawValue
+    -> (RawValue -> m a)
+    -> (Rest a -> m b)
+    -> m b
+  supplyEmacsArgs nargs startPtr mkArg f =
     case nargs of
-      0 -> f []
-      n -> f =<< peekArray n startPtr
+      0 -> f (Rest [])
+      n -> f . Rest =<< traverse mkArg =<< liftBase (peekArray n startPtr)
 
 {-# INLINE advanceEmacsValuePtr #-}
-advanceEmacsValuePtr :: Ptr Emacs.RawValue -> Ptr Emacs.RawValue
+advanceEmacsValuePtr :: Ptr RawValue -> Ptr RawValue
 advanceEmacsValuePtr =
-  (`plusPtr` (sizeOf (undefined :: Emacs.RawValue)))
+  (`plusPtr` (sizeOf (undefined :: RawValue)))
 
 instance EmacsInvocation 'Z n rest => EmacsInvocation 'Z ('S n) rest where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> (EmacsArgs 'Z ('S n) rest a) -> IO a
-  supplyEmacsArgs nargs startPtr f =
+  supplyEmacsArgs
+    :: forall m a b. MonadBase IO m
+    => Int
+    -> Ptr RawValue
+    -> (RawValue -> m a)
+    -> (O a (EmacsArgs 'Z n rest a) -> m b)
+    -> m b
+  supplyEmacsArgs nargs startPtr mkArg f =
     case nargs of
-      0 -> supplyEmacsArgs nargs startPtr (f Nothing)
+      0 -> supplyEmacsArgs nargs startPtr mkArg (f . O Nothing)
       _ -> do
-        arg <- Just <$> peek startPtr
-        supplyEmacsArgs (nargs - 1) (advanceEmacsValuePtr startPtr) (f arg)
+        arg <- mkArg =<< liftBase (peek startPtr)
+        supplyEmacsArgs
+          (nargs - 1)
+          (advanceEmacsValuePtr startPtr)
+          mkArg
+          (f . O (Just arg))
 
 instance EmacsInvocation n opt rest => EmacsInvocation ('S n) opt rest where
   {-# INLINE supplyEmacsArgs #-}
-  supplyEmacsArgs :: Int -> Ptr Emacs.RawValue -> (EmacsArgs ('S n) opt rest a) -> IO a
-  supplyEmacsArgs nargs startPtr f = do
-    arg <- peek startPtr
-    supplyEmacsArgs (nargs - 1) (advanceEmacsValuePtr startPtr) (f arg)
+  supplyEmacsArgs
+    :: MonadBase IO m
+    => Int
+    -> Ptr RawValue
+    -> (RawValue -> m a)
+    -> (R a (EmacsArgs n opt rest a) -> m b)
+    -> m b
+  supplyEmacsArgs nargs startPtr mkArg f = do
+    arg <- mkArg =<< liftBase (peek startPtr)
+    supplyEmacsArgs (nargs - 1) (advanceEmacsValuePtr startPtr) mkArg (f . R arg)
 
 
 class GetArities (req :: Nat) (opt :: Nat) (rest :: Bool) where

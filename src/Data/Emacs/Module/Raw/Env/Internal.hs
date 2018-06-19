@@ -42,6 +42,9 @@ type RawFunctionType a =
   -> Ptr a        -- Extra data
   -> IO RawValue
 
+-- NB This is *the* coolest point of this library: *any* Haskell
+-- function (incl closures) may be exposed to C to be called later.
+-- The C/C++ will never have this...
 foreign import ccall "wrapper"
   exportToEmacs :: RawFunctionType a -> IO (RawFunction a)
 

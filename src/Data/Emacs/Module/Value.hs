@@ -6,11 +6,10 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Data.Emacs.Module.Value
-  ( RawValue(..)
-  , GlobalRef(..)
+  ( RawValue
+  , Value(..)
   ) where
 
-import Data.Emacs.Module.Raw.Value
+import Data.Emacs.Module.Raw.Value (RawValue)
+import Data.Emacs.Module.Value.Internal

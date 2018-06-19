@@ -6,8 +6,10 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Emacs.Module.Monad.Class
   ( EmacsFunction
@@ -25,30 +27,30 @@ import Foreign.Ptr (Ptr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Raw.Env.Internal (Env)
+import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName (SymbolName)
-import qualified Data.Emacs.Module.Value as Emacs
+import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
-type EmacsFunction req opt rest
+type EmacsFunction req opt rest s (m :: * -> * -> *)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => Env -> EmacsArgs req opt rest Emacs.RawValue
+  => EmacsArgs req opt rest (Value s) -> m s (Value s)
 
-type EmacsFunctionExtra extra req opt rest
+type EmacsFunctionExtra req opt rest extra s (m :: * -> * -> *)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => Env -> Ptr extra -> EmacsArgs req opt rest Emacs.RawValue
+  => EmacsArgs req opt rest (Value s) -> Ptr extra -> m s (Value s)
 
-class Monad m => MonadEmacs m where
+class MonadEmacs (m :: * -> * -> *) where
 
   -- | Check whether a non-local exit is pending.
-  nonLocalExitCheck :: WithCallStack => m (FuncallExit ())
+  nonLocalExitCheck :: WithCallStack => m s (FuncallExit ())
 
   -- | Check whether a non-local exit is pending and get detailed data
   -- in case it is.
   nonLocalExitGet
     :: WithCallStack
-    => m (FuncallExit (Emacs.RawValue, Emacs.RawValue))
+    => m s (FuncallExit (Value s, Value s))
 
   -- | Equivalent to Emacs's @signal@ function.
   --
@@ -56,9 +58,9 @@ class Monad m => MonadEmacs m where
   -- overwrite it. In order to do that, use nonLocalExitClear.
   nonLocalExitSignal
     :: WithCallStack
-    => Emacs.RawValue   -- ^ Error symbol
-    -> [Emacs.RawValue] -- ^ Error data, will be converted to a list as Emacs API expects.
-    -> m ()
+    => Value s   -- ^ Error symbol
+    -> [Value s] -- ^ Error data, will be converted to a list as Emacs API expects.
+    -> m s ()
 
   -- | Equivalent to Emacs's @throw@ function.
   --
@@ -66,21 +68,22 @@ class Monad m => MonadEmacs m where
   -- overwrite it. In order to do that, use nonLocalExitClear.
   nonLocalExitThrow
     :: WithCallStack
-    => Emacs.RawValue -- ^ Tag
-    -> Emacs.RawValue -- ^ Data
-    -> m ()
+    => Value s -- ^ Tag
+    -> Value s -- ^ Data
+    -> m s ()
 
   -- | Clean any pending local exits.
-  nonLocalExitClear :: WithCallStack => m ()
+  nonLocalExitClear :: WithCallStack => m s ()
 
 
-  -- | Make a global reference to a value so that it will persist
-  -- across different calls from Emacs into exposed functions.
-  makeGlobalRef :: WithCallStack => Emacs.RawValue -> m Emacs.GlobalRef
+  -- | Protect a raw value (i.e. a plain pointer) from Emacs GC.
+  --
+  -- Users writing emacs extersions will likely have no need to
+  -- call this function directly.
+  makeValue :: WithCallStack => RawValue -> m s (Value s)
 
-  -- | Free a global reference.
-  freeGlobalRef :: WithCallStack => Emacs.GlobalRef -> m ()
-
+  -- | Make value eligible for collection during next GC within Emacs.
+  freeValue :: WithCallStack => Value s -> m s ()
 
   -- | Make Haskell function available as an anonymoucs Emacs
   -- function. In order to be able to use it later from Emacs it should
@@ -94,40 +97,39 @@ class Monad m => MonadEmacs m where
   -- will not be used, but it's currently not supported.
   makeFunctionExtra
     :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => EmacsFunctionExtra extra req opt rest -- ^ Haskell function to export
-    -> C8.ByteString                         -- ^ Documentation
-    -> Ptr extra                             -- ^ Extra data to be passed to the Haskell function
-    -> m Emacs.RawValue
-
+    => (forall s'. EmacsFunctionExtra req opt rest extra s' m) -- ^ Haskell function to export
+    -> C8.ByteString                                           -- ^ Documentation
+    -> Ptr extra                                               -- ^ Extra data to be passed to the Haskell function
+    -> m s (Value s)
 
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
     :: WithCallStack
-    => SymbolName    -- ^ Function name
-    -> [Emacs.RawValue] -- ^ Arguments
-    -> m Emacs.RawValue
+    => SymbolName -- ^ Function name
+    -> [Value s]  -- ^ Arguments
+    -> m s (Value s)
 
   -- | Invoke an Emacs function. The function should be simple and
   -- must not call back into Haskell.
   funcallPrimitive
     :: WithCallStack
-    => SymbolName    -- ^ Function name
-    -> [Emacs.RawValue] -- ^ Arguments
-    -> m Emacs.RawValue
+    => SymbolName -- ^ Function name
+    -> [Value s]  -- ^ Arguments
+    -> m s (Value s)
 
   -- | Convert a string to an Emacs symbol.
   intern
     :: WithCallStack
     => SymbolName
-    -> m Emacs.RawValue
+    -> m s (Value s)
 
   -- | Get type of an Emacs value as an Emacs symbol.
   typeOf
     :: WithCallStack
-    => Emacs.RawValue -> m Emacs.RawValue
+    => Value s -> m s (Value s)
 
   -- | Check whether Emacs value is not @nil@.
-  isNotNil :: WithCallStack => Emacs.RawValue -> m Bool
+  isNotNil :: WithCallStack => Value s -> m s Bool
 
   -- | Primitive equality. Tests whether two symbols, integers or
   -- characters are the equal, but not much more. For more complete
@@ -136,59 +138,59 @@ class Monad m => MonadEmacs m where
   -- > funcall [esym|equal|] [x, y]
   eq
     :: WithCallStack
-    => Emacs.RawValue -> Emacs.RawValue -> m Bool
+    => Value s -> Value s -> m s Bool
 
 
   -- | Try to unpack a wide integer from a value.
-  extractWideInteger :: WithCallStack => Emacs.RawValue -> m Int64
+  extractWideInteger :: WithCallStack => Value s -> m s Int64
 
   -- | Pack a wide integer for Emacs.
-  makeWideInteger :: WithCallStack => Int64 -> m Emacs.RawValue
+  makeWideInteger :: WithCallStack => Int64 -> m s (Value s)
 
   -- | Try to unpack a floating-point number from a value.
-  extractDouble :: WithCallStack => Emacs.RawValue -> m Double
+  extractDouble :: WithCallStack => Value s -> m s Double
 
   -- | Convert a floating-point number into Emacs value.
-  makeDouble :: WithCallStack => Double -> m Emacs.RawValue
+  makeDouble :: WithCallStack => Double -> m s (Value s)
 
   -- | Extract string contents from an Emacs value.
-  extractString :: WithCallStack => Emacs.RawValue -> m BS.ByteString
+  extractString :: WithCallStack => Value s -> m s BS.ByteString
 
   -- | Convert a utf8-encoded ByteString into an Emacs value.
-  makeString :: WithCallStack => BS.ByteString -> m Emacs.RawValue
+  makeString :: WithCallStack => BS.ByteString -> m s (Value s)
 
 
   -- | Extract a user pointer from an Emacs value.
-  extractUserPtr :: WithCallStack => Emacs.RawValue -> m (Ptr a)
+  extractUserPtr :: WithCallStack => Value s -> m s (Ptr a)
 
   -- | Pack a user pointer into an Emacs value.
   makeUserPtr
     :: WithCallStack
     => UserPtrFinaliser a -- ^ Finalisation action that will be executed when user pointer gets garbage-collected by Emacs.
     -> Ptr a
-    -> m Emacs.RawValue
+    -> m s (Value s)
 
   -- | Set user pointer to a new value
-  assignUserPtr :: WithCallStack => Emacs.RawValue -> Ptr a -> m ()
+  assignUserPtr :: WithCallStack => Value s -> Ptr a -> m s ()
 
   -- | Extract a finaliser from an user_ptr.
   extractUserPtrFinaliser
-    :: WithCallStack => Emacs.RawValue -> m (UserPtrFinaliser a)
+    :: WithCallStack => Value s -> m s (UserPtrFinaliser a)
 
   -- | Assign new finaliser into an user_ptr.
   assignUserPtrFinaliser
-    :: WithCallStack => Emacs.RawValue -> UserPtrFinaliser a -> m ()
+    :: WithCallStack => Value s -> UserPtrFinaliser a -> m s ()
 
   -- | Extract an element from an Emacs vector.
-  vecGet :: WithCallStack => Emacs.RawValue -> Int -> m Emacs.RawValue
+  vecGet :: WithCallStack => Value s -> Int -> m s (Value s)
 
   -- | Assign an element into an Emacs vector.
   vecSet
     :: WithCallStack
-    => Emacs.RawValue -- ^ Vector
-    -> Int         -- ^ Index
-    -> Emacs.RawValue -- ^ New value
-    -> m ()
+    => Value s -- ^ Vector
+    -> Int     -- ^ Index
+    -> Value s -- ^ New value
+    -> m s ()
 
   -- | Get size of an Emacs vector.
-  vecSize :: WithCallStack => Emacs.RawValue -> m Int
+  vecSize :: WithCallStack => Value s -> m s Int

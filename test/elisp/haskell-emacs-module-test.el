@@ -8,7 +8,7 @@
 
 (require 'ert)
 
-(setq-default garbage-collection-messages t)
+;; (setq-default garbage-collection-messages t)
 
 (load-library "libemacs-module-test")
 
@@ -116,24 +116,8 @@
                  (apply #'vconcat (custom-repeat 1000 [1 2 3])))))
 
 (ert-deftest haskell-emacs-module-test/append-lots-of-vectors-08 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 10000)
-                 (apply #'vconcat (custom-repeat 10000 [1 2 3])))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-09 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 100000)
-                 (apply #'vconcat (custom-repeat 100000 [1 2 3])))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-10 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 1000000)
-                 (apply #'vconcat (custom-repeat 1000000 [1 2 3])))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-11 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 10000000)
-                 (apply #'vconcat (custom-repeat 10000000 [1 2 3])))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-vectors-12 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 50000000)
-                 (apply #'vconcat (custom-repeat 50000000 [1 2 3])))))
+  (should (equal (haskell-emacs-module-tests-append-lots-of-vectors 2000)
+                 (apply #'vconcat (custom-repeat 2000 [1 2 3])))))
 
 
 (ert-deftest haskell-emacs-module-test/append-lots-of-strings-01 ()
@@ -161,24 +145,8 @@
                  (apply #'concat (custom-repeat 1000 "foo")))))
 
 (ert-deftest haskell-emacs-module-test/append-lots-of-strings-08 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 10000)
-                 (apply #'concat (custom-repeat 10000 "foo")))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-strings-09 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 100000)
-                 (apply #'concat (custom-repeat 100000 "foo")))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-strings-10 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 1000000)
-                 (apply #'concat (custom-repeat 1000000 "foo")))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-strings-11 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 10000000)
-                 (apply #'concat (custom-repeat 10000000 "foo")))))
-
-(ert-deftest haskell-emacs-module-test/append-lots-of-strings-12 ()
-  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 50000000)
-                 (apply #'concat (custom-repeat 50000000 "foo")))))
+  (should (equal (haskell-emacs-module-tests-append-lots-of-strings 2000)
+                 (apply #'concat (custom-repeat 2000 "foo")))))
 
 (provide 'haskell-emacs-module-test)
 

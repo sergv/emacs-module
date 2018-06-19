@@ -8,12 +8,13 @@
 -- This module defines various kinds of exception that this library
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE QuasiQuotes        #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE TypeApplications   #-}
 
 module Emacs.Module.Errors
   ( EmacsThrow(..)
@@ -51,20 +52,21 @@ import GHC.Stack (CallStack, callStack, prettyCallStack)
 import Text.Show (showString)
 
 import qualified Data.Emacs.Module.Env as Raw
-import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.NonNullPtr
+import Data.Emacs.Module.Raw.Env.Internal (Env)
+import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName (useSymbolNameAsCString)
 import Data.Emacs.Module.SymbolName.TH
-import qualified Data.Emacs.Module.Value as Emacs
 import Emacs.Module.Assert
+-- import qualified Data.Emacs.Module.Value.Internal as Emacs
 
 -- | A Haskell exception used to signal a @throw@ exit performed by an
 -- Emacs function.
 --
 -- Unlikely to be needed when developing Emacs extensions.
 data EmacsThrow = EmacsThrow
-  { emacsThrowTag    :: !Emacs.RawValue
-  , emacsThrowValue  :: !Emacs.RawValue
+  { emacsThrowTag    :: !RawValue
+  , emacsThrowValue  :: !RawValue
   }
 
 instance Show EmacsThrow where
@@ -72,10 +74,14 @@ instance Show EmacsThrow where
 
 instance Exception EmacsThrow
 
-reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO Emacs.RawValue
-reportEmacsThrowToEmacs env EmacsThrow{emacsThrowTag, emacsThrowValue} = do
-  Raw.nonLocalExitThrow env emacsThrowTag emacsThrowValue
+reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO RawValue
+reportEmacsThrowToEmacs env et = do
+  reportEmacsThrowToEmacs' env et
   returnNil env
+
+reportEmacsThrowToEmacs' :: Env -> EmacsThrow -> IO ()
+reportEmacsThrowToEmacs' env EmacsThrow{emacsThrowTag, emacsThrowValue} = do
+  Raw.nonLocalExitThrow env emacsThrowTag emacsThrowValue
 
 -- | Error thrown to emacs by Haskell functions when anything goes awry.
 data UserError = UserError
@@ -133,7 +139,7 @@ instance Pretty EmacsError where
     "Location:" <> line <>
     indent 2 (ppCallStack emacsErrStack)
 
-reportErrorToEmacs :: Env -> EmacsError -> IO Emacs.RawValue
+reportErrorToEmacs :: Env -> EmacsError -> IO RawValue
 reportErrorToEmacs env e = do
   report render env e
   returnNil env
@@ -156,7 +162,7 @@ mkEmacsInternalError msg = EmacsInternalError
   , emacsInternalErrStack = callStack
   }
 
-reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO Emacs.RawValue
+reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO RawValue
 reportInternalErrorToEmacs env e = do
   report render env e
   returnNil env
@@ -179,7 +185,7 @@ formatSomeException e =
         "Error within Haskell<->Emacs bindings:" <> line <>
         indent 2 (pretty (show e))
 
-reportAnyErrorToEmacs :: Env -> SomeException -> IO Emacs.RawValue
+reportAnyErrorToEmacs :: Env -> SomeException -> IO RawValue
 reportAnyErrorToEmacs env e = do
   report formatSomeException env e
   returnNil env
@@ -196,10 +202,10 @@ reportAllErrorsToEmacs
   -> IO a
 reportAllErrorsToEmacs env resultOnErr x =
   Exception.handle (\e -> report formatSomeException env e *> resultOnErr) $
+  Checked.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr) $
   Checked.uncheck (Proxy @EmacsInternalError) $
   Checked.uncheck (Proxy @EmacsError) $
-  Checked.uncheck (Proxy @UserError) $
-  Checked.uncheck (Proxy @EmacsThrow) x
+  Checked.uncheck (Proxy @UserError) x
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
@@ -220,7 +226,7 @@ withTextAsCString0AndLen str f =
   where
     utf8 = (TE.encodeUtf8 str)
 
-returnNil :: Env -> IO Emacs.RawValue
+returnNil :: Env -> IO RawValue
 returnNil env =
   useSymbolNameAsCString [esym|nil|] (Raw.intern env)
 

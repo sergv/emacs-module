@@ -16,6 +16,13 @@ module Emacs.Module
   , Raw.UserPtrFinaliserType
   , Raw.UserPtrFinaliser
 
+    -- * Types for defining functions
+  , Nat(..)
+  , R(..)
+  , O(..)
+  , Rest(..)
+  , Stop(..)
+
     -- * Errors
   , EmacsError(..)
   , EmacsInternalError(..)
@@ -37,6 +44,7 @@ module Emacs.Module
 
 import Control.Exception.Safe.Checked (MonadThrow, Throws)
 
+import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (Env)
 import qualified Data.Emacs.Module.Raw.Env as Raw
 import Data.Emacs.Module.Value

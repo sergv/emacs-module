@@ -6,9 +6,14 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE DeriveGeneric #-}
+
 module Data.Emacs.Module.Value.Internal (Value(..)) where
 
+import Control.DeepSeq
 import Control.Monad.Trans.Resource
+
+import GHC.Generics (Generic)
 
 import Data.Emacs.Module.Raw.Value (GlobalRef(..))
 
@@ -20,4 +25,7 @@ import Data.Emacs.Module.Raw.Value (GlobalRef(..))
 data Value s = Value
   { valuePayload       :: {-# UNPACK #-} !GlobalRef
   , valueReleaseHandle :: {-# UNPACK #-} !ReleaseKey
-  }
+  } deriving (Generic)
+
+instance NFData (Value s) where
+  rnf (Value x y) = rnf x `seq` y `seq` ()

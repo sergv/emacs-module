@@ -28,6 +28,7 @@ module Emacs.Module.Functions
     -- * Vectors
   , extractVector
   , extractVectorWith
+  , extractUnboxedVectorWith
   , makeVector
   , vconcat2
     -- * Lists
@@ -37,6 +38,9 @@ module Emacs.Module.Functions
   , nil
   , setcar
   , setcdr
+  , makeList
+  , extractList
+  , extractListRev
     -- * Strings
   , addFaceProp
   , concat2
@@ -50,9 +54,12 @@ import Control.Monad.Catch
 import Control.Monad.Except
 
 import qualified Data.ByteString.Char8 as C8
+import Data.Foldable
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
+import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as U
 import Foreign.Ptr (nullPtr)
 
 import Data.Emacs.Module.Args
@@ -151,10 +158,11 @@ withCleanup x f = f x `finally` freeValue x
 {-# INLINABLE extractVector #-}
 -- | Get all elements form an Emacs vector.
 extractVector
-  :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s [Value s]
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s -> m s (V.Vector (Value s))
 extractVector xs = do
   n <- vecSize xs
-  traverse (vecGet xs) [0..n - 1]
+  V.generateM n $ vecGet xs
 
 {-# INLINABLE extractVectorWith #-}
 -- | Get all elements form an Emacs vector using specific function to
@@ -163,10 +171,22 @@ extractVectorWith
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => (Value s -> m s a)
   -> Value s
-  -> m s [a]
+  -> m s (V.Vector a)
 extractVectorWith f xs = do
   n <- vecSize xs
-  traverse (f <=< vecGet xs) [0..n - 1]
+  V.generateM n $ f <=< vecGet xs
+
+{-# INLINABLE extractUnboxedVectorWith #-}
+-- | Get all elements form an Emacs vector using specific function to
+-- convert elements.
+extractUnboxedVectorWith
+  :: (WithCallStack, MonadEmacs m, Monad (m s), U.Unbox a)
+  => (Value s -> m s a)
+  -> Value s
+  -> m s (U.Vector a)
+extractUnboxedVectorWith f xs = do
+  n <- vecSize xs
+  U.generateM n $ f <=< vecGet xs
 
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.
@@ -235,6 +255,48 @@ setcdr
   -> Value s -- ^ New value
   -> m s (Value s)
 setcdr x y = funcallPrimitive [esym|setcdr|] [x, y]
+
+{-# INLINE makeList #-}
+-- | Construct vanilla Emacs list from a Haskell list.
+makeList
+  :: (WithCallStack, MonadEmacs m, Monad (m s), Foldable f)
+  => f (Value s)
+  -> m s (Value s)
+makeList xs = do
+  nil' <- nil
+  go nil' $ reverse $ toList xs
+  where
+    go end []       = pure end
+    go end (y : ys) = do
+      end' <- cons y end
+      go end' ys
+
+{-# INLINE extractList #-}
+-- | Extract vanilla Emacs list as Haskell list.
+extractList
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s [Value s]
+extractList = fmap reverse . extractListRev
+
+{-# INLINE extractListRev #-}
+-- | Extract vanilla Emacs list as a reversed Haskell list. It's more
+-- efficient than 'extractList' but doesn't preserve order of elements
+-- that was specified from Emacs side.
+extractListRev
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s [Value s]
+extractListRev = go []
+  where
+    go acc xs = do
+      nonNil <- isNotNil xs
+      if nonNil
+        then do
+          x   <- car xs
+          xs' <- cdr xs
+          go (x : acc) xs'
+        else pure acc
 
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.

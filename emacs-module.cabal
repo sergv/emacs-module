@@ -86,6 +86,7 @@ library
     text,
     template-haskell,
     transformers-base,
+    vector,
     void
   includes:
     emacs-module.h

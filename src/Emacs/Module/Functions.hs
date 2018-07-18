@@ -17,14 +17,17 @@
 module Emacs.Module.Functions
   ( bindFunction
   , makeFunction
+  , withCleanup
   , provide
+  , makeUserPtrFromStablePtr
+  , extractStablePtrFromUserPtr
+    -- * Haskell<->Emacs datatype conversions
   , extractInt
   , makeInt
   , extractText
   , makeText
   , extractBool
   , makeBool
-  , withCleanup
     -- * Vectors
   , extractVector
   , extractVectorWith
@@ -61,8 +64,10 @@ import qualified Data.Text.Encoding.Error as TE
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import Foreign.Ptr (nullPtr)
+import Foreign.StablePtr
 
 import Data.Emacs.Module.Args
+import qualified Data.Emacs.Module.Env as Env
 import Data.Emacs.Module.SymbolName (SymbolName)
 import Data.Emacs.Module.SymbolName.TH
 import Data.Emacs.Module.Value
@@ -105,6 +110,23 @@ provide
 provide sym = do
   sym' <- intern sym
   funcallPrimitive [esym|provide|] [sym']
+
+{-# INLINE makeUserPtrFromStablePtr #-}
+-- | Pack a stable pointer as Emacs @user_ptr@.
+makeUserPtrFromStablePtr
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => StablePtr a
+  -> m s (Value s)
+makeUserPtrFromStablePtr =
+  makeUserPtr Env.freeStablePtrFinaliser . castStablePtrToPtr
+
+{-# INLINE extractStablePtrFromUserPtr #-}
+extractStablePtrFromUserPtr
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => Value s
+  -> m s (StablePtr a)
+extractStablePtrFromUserPtr =
+  fmap castPtrToStablePtr . extractUserPtr
 
 {-# INLINE extractInt #-}
 -- | Try to obtain an 'Int' from Emacs value.
@@ -320,6 +342,7 @@ concat2
 concat2 x y =
   funcallPrimitive [esym|concat|] [x, y]
 
+-- | Convert an Emacs value into a string using @prin1-to-string@.
 valueToText
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => Value s

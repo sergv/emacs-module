@@ -6,6 +6,8 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 module Data.Emacs.Module.Env
   ( Env
 
@@ -57,8 +59,15 @@ module Data.Emacs.Module.Env
     exportToEmacs
   , RawFunctionType
   , RawFunction
+
+    -- * Expose Haskell data to Emacs
+  , freeStablePtrFinaliser
   ) where
 
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Env
+
+-- | Pass to 'makeUserPtr' so that Emacs will free the Haskell's stable
+-- pointer when the corresponding elisp value goes out of scope.
+foreign import ccall "& hs_free_stable_ptr" freeStablePtrFinaliser :: UserPtrFinaliser a

@@ -125,12 +125,16 @@ getRawValue = unGlobalRef . valuePayload
 liftIO' :: (Env -> IO a) -> EmacsM s a
 liftIO' f = EmacsM $ asks eEnv >>= liftIO . f
 
-{-# INLINABLE makeValue' #-}
-makeValue'
+{-# INLINABLE makeValue #-}
+-- | Protect a raw value (i.e. a plain pointer) from Emacs GC.
+--
+-- Users writing emacs extersions will likely have no need to
+-- call this function directly.
+makeValue
   :: (WithCallStack, Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow)
   => RawValue
   -> EmacsM s (Value s)
-makeValue' raw = do
+makeValue raw = do
   env <- EmacsM $ asks eEnv
   valuePayload <-
     checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
@@ -306,10 +310,6 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   -- freeGlobalRef x =
   --   checkExitAndRethrowInHaskell' "freeGlobalRef failed" $
   --     liftIO' (\env -> Raw.freeGlobalRef env x)
-
-  {-# INLINE makeValue #-}
-  makeValue :: WithCallStack => RawValue -> EmacsM s (Value s)
-  makeValue = makeValue'
 
   {-# INLINE freeValue #-}
   freeValue :: WithCallStack => Value s -> EmacsM s ()

@@ -75,13 +75,6 @@ class MonadEmacs (m :: * -> * -> *) where
   -- | Clean any pending local exits.
   nonLocalExitClear :: WithCallStack => m s ()
 
-
-  -- | Protect a raw value (i.e. a plain pointer) from Emacs GC.
-  --
-  -- Users writing emacs extersions will likely have no need to
-  -- call this function directly.
-  makeValue :: WithCallStack => RawValue -> m s (Value s)
-
   -- | Make value eligible for collection during next GC within Emacs.
   freeValue :: WithCallStack => Value s -> m s ()
 

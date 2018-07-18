@@ -21,7 +21,12 @@ import Data.Emacs.Module.Raw.Value (GlobalRef(..))
 -- Incidentally, this implies that it's "protected" against Emacs GC and
 -- thus will not unexpectedly go out of scope.
 --
--- Can be used to e.g. cache values that are expensive to compute from scratch.
+-- In order to prevent memory leaks, value is registered in the Emacs
+-- monad than produced it and will be freed when the monad finishes.
+-- To make the connection clear the value is tagged with parameter
+-- @s@, which serves the same purpose as tag of the 'ST' monad. That
+-- is, it ensures that value cannot leave the scope of the monad that
+-- produced it.
 data Value s = Value
   { valuePayload       :: {-# UNPACK #-} !GlobalRef
   , valueReleaseHandle :: {-# UNPACK #-} !ReleaseKey

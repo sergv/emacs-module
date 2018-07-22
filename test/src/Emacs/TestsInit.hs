@@ -13,6 +13,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
 
 module Emacs.TestsInit () where
@@ -97,13 +98,14 @@ getRest (R _req (Rest rest)) =
   funcall [esym|vector|] rest
 
 appendLotsOfStrings
-  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: forall m s. (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
   -- foo'   <- makeString "foo"
   empty' <- makeString ""
-  let input = replicate n' (makeString "foo", "foo")
+  let input :: [(m s (Value s), C8.ByteString)]
+      input = replicate n' (makeString "foo", "foo")
       res = appendTree concat2' input
   res' <- traverse fst res
   pure $ fromMaybe empty' res'
@@ -116,11 +118,10 @@ appendLotsOfVectors (R n Stop) = do
   one    <- makeInt 1
   two    <- makeInt 2
   three  <- makeInt 3
-  test   <- makeVector [one, two, three]
 
   empty' <- makeVector []
 
-  let input = replicate n' (pure test, [1, 2, 3])
+  let input = replicate n' (makeVector [one, two, three], [1, 2, 3])
       res = appendTree vconcat2' input
   res' <- traverse fst res
   pure $ fromMaybe empty' res'

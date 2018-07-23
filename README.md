@@ -1,7 +1,7 @@
 # A Haskell package for writing Emacs modules #
 
 ![License BSD 3][badge-license]
-[![Build Status][badge-travis]](https://travis-ci.org/sergv/emacs-modules)
+[![Build Status][badge-travis]](https://travis-ci.org/sergv/emacs-module)
 
 ## Supported GHC versions ##
 

@@ -24,6 +24,9 @@ import Foreign
 #if MIN_VERSION_base(4,10,0)
 import Foreign.C
 #endif
+#if __GLASGOW_HASKELL__ < 804
+import Data.Semigroup
+#endif
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)

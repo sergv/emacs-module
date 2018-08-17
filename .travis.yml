@@ -26,13 +26,17 @@ git:
 
 matrix:
   allow_failures:
-     - env: GHC=head
+     - compiler: "GHC HEAD, Cabal HEAD"
 
   include:
     - env: GHC=8.0.2 CABALVER=2.0 ALLOW_NEWER=0
+      compiler: "GHC 8.0.2, Cabal 2.0"
     - env: GHC=8.2.2 CABALVER=2.0 ALLOW_NEWER=0
+      compiler: "GHC 8.2.2, Cabal 2.0"
     - env: GHC=8.4.3 CABALVER=2.2 ALLOW_NEWER=0
+      compiler: "GHC 8.4.3, Cabal 2.2"
     - env: GHC=head CABALVER=head ALLOW_NEWER=1
+      compiler: "GHC HEAD, Cabal HEAD"
 
 install: true
 

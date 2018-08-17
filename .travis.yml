@@ -70,21 +70,26 @@ install:
   - travis_retry cabal update -v
 
   - echo "Installing Emacs"
+  - gcc --version
+  - export CC=gcc
   - |
-    EMACSDIR=$(mktemp -d /tmp/emacs-build.XXXX)
+    EMACSDIR=$(mktemp -d /tmp/emacs-build.XXXX);
     if ! [[ -f "$EMACS_INSTALL/bin/emacs" ]] || ! "$EMACS_INSTALL/bin/emacs" --version ; then
       ( cd "$EMACSDIR" ;
-        travis_retry wget https://ftp.gnu.org/gnu/emacs/emacs-25.3.tar.xz ;
-        tar xf emacs-25.3.tar.xz ;
-        cd emacs-25.3 ;
+        travis_retry wget https://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.xz ;
+        tar xf emacs-26.1.tar.xz ;
+        cd emacs-26.1 ;
         ./autogen.sh ;
-        ./configure --without-all --without-makeinfo --without-x --with-modules --prefix="$EMACS_INSTALL" >/dev/null;
-        echo "Bulding Emacs"
-        make bootstrap -j2 >/dev/null;
-        echo "Installing Emacs"
-        make install -j2 >/dev/null;
+        ./configure --without-all --without-makeinfo --without-x --with-modules --prefix="$EMACS_INSTALL" >/dev/null || cat config.log;
+        echo "Bulding Emacs" ;
+        make bootstrap -j2 >/dev/null ;
+        echo "Installing Emacs" ;
+        make install -j2 >/dev/null ;
       )
     fi
+
+  - |
+    "$EMACS_INSTALL/bin/emacs" --version
 
   - echo "Installing dependencies"
   - cabal new-build --only-dependencies -j2 $ALLOW_NEWER_FLAG

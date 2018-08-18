@@ -53,7 +53,6 @@ foreign-library emacs-module-test
     -fno-warn-type-defaults
   if impl(ghc >= 8.0)
     ghc-options:
-      -Wall-missed-specialisations
       -Wcompat
       -Whi-shadowing
       -Widentities

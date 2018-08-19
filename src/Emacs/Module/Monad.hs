@@ -140,7 +140,7 @@ makeValue raw = do
     checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
       Raw.makeGlobalRef env raw
   valueReleaseHandle <- register (Raw.freeGlobalRef env valuePayload)
-  pure Value {valuePayload, valueReleaseHandle}
+  pure Value{valuePayload, valueReleaseHandle}
 
 {-# INLINABLE unpackEnumFuncallExit #-}
 unpackEnumFuncallExit
@@ -199,7 +199,7 @@ checkExitAndRethrowInHaskell errMsg = do
           formatted' <- extractTextUtf8Unchecked formatted
           Checked.throw $
             mkEmacsError errMsg $
-              pretty $ formatted'
+              pretty formatted'
     FuncallExitThrow (tag, value) ->
       -- NB do not clear local exit flag - we, hopefully, should exit
       -- now by unwinding full Haskell stack and the flag should be

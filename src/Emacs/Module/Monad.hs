@@ -356,7 +356,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   {-# INLINE funcallPrimitive_ #-}
   funcallPrimitive_ name args =
     checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed")
-      (void $ funcallPrimitiveUnchecked name (coerce args))
+      (void $ funcallPrimitiveUnchecked name (map getRawValue args))
 
   {-# INLINE intern #-}
   intern sym =

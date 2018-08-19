@@ -26,6 +26,8 @@ module Emacs.Module.Functions
   , makeInt
   , extractText
   , makeText
+  , extractShortByteString
+  , makeShortByteString
   , extractBool
   , makeBool
     -- * Vectors
@@ -57,6 +59,8 @@ import Control.Monad.Catch
 import Control.Monad.Except
 
 import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Short (ShortByteString)
+import qualified Data.ByteString.Short as BSS
 import Data.Foldable
 import Data.Text (Text)
 import qualified Data.Text.Encoding as TE
@@ -149,7 +153,7 @@ makeInt
 makeInt = makeWideInteger . fromIntegral
 
 {-# INLINE extractText #-}
--- | Extract string contents from an Emacs value.
+-- | Extract string contents as 'Text' from an Emacs value.
 extractText :: (WithCallStack, MonadEmacs m, Monad (m s)) => Value s -> m s Text
 extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
 
@@ -157,6 +161,22 @@ extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
 -- | Convert a Text into an Emacs string value.
 makeText :: (WithCallStack, MonadEmacs m, Monad (m s)) => Text -> m s (Value s)
 makeText = makeString . TE.encodeUtf8
+
+
+{-# INLINE extractShortByteString #-}
+-- | Extract string contents as 'ShortByteString' from an Emacs value.
+extractShortByteString
+  :: (WithCallStack, MonadEmacs m, Functor (m s))
+  => Value s -> m s ShortByteString
+extractShortByteString = fmap BSS.toShort . extractString
+
+{-# INLINE makeShortByteString #-}
+-- | Convert a ShortByteString into an Emacs string value.
+makeShortByteString
+  :: (WithCallStack, MonadEmacs m)
+  => ShortByteString -> m s (Value s)
+makeShortByteString = makeString . BSS.fromShort
+
 
 {-# INLINE extractBool #-}
 -- | Extract a boolean from an Emacs value.

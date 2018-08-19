@@ -84,7 +84,7 @@ bindFunction
   -> m s ()
 bindFunction name def = do
   name' <- intern name
-  void $ funcallPrimitive [esym|fset|] [name', def]
+  funcallPrimitive_ [esym|fset|] [name', def]
 
 {-# INLINE makeFunction #-}
 -- | Make Haskell function available as an anonymoucs Emacs

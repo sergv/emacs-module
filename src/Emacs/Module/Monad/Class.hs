@@ -27,7 +27,6 @@ import Foreign.Ptr (Ptr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName (SymbolName)
 import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
@@ -109,6 +108,14 @@ class MonadEmacs (m :: * -> * -> *) where
     => SymbolName -- ^ Function name
     -> [Value s]  -- ^ Arguments
     -> m s (Value s)
+
+  -- | Invoke an Emacs function and ignore its result. The function
+  -- should be simple and must not call back into Haskell.
+  funcallPrimitive_
+    :: WithCallStack
+    => SymbolName     -- ^ Function name
+    -> [Value s]  -- ^ Arguments
+    -> m s ()
 
   -- | Convert a string to an Emacs symbol.
   intern

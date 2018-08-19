@@ -254,11 +254,11 @@ extractTextUtf8Unchecked =
 extractStringUnchecked
   :: (WithCallStack, Throws EmacsInternalError)
   => RawValue -> EmacsM s BS.ByteString
-extractStringUnchecked x = do
+extractStringUnchecked x =
   liftIO' $ \env ->
     allocaNonNull $ \pSize -> do
       res  <- Raw.copyStringContents env x nullPtr pSize
-      unless (Raw.isTruthy res) $ do
+      unless (Raw.isTruthy res) $
         -- Raw.nonLocalExitClear env
         Checked.throw $ mkEmacsInternalError
           "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
@@ -352,6 +352,11 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
     makeValue =<<
     checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed")
       (funcallPrimitiveUnchecked name (map getRawValue args))
+
+  {-# INLINE funcallPrimitive_ #-}
+  funcallPrimitive_ name args =
+    checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed")
+      (void $ funcallPrimitiveUnchecked name (coerce args))
 
   {-# INLINE intern #-}
   intern sym =

@@ -50,6 +50,7 @@ before_install:
 
   - export EMACS_INSTALL="$HOME/emacs"
 
+  # Needed to make emacs dump properly.
   - sudo bash -c 'echo 0 > /proc/sys/kernel/randomize_va_space'
 
   - |
@@ -72,6 +73,7 @@ install:
   - echo "Installing Emacs"
   - gcc --version
   - export CC=gcc
+  - REPO_ROOT="$(pwd)"
   - |
     EMACSDIR=$(mktemp -d /tmp/emacs-build.XXXX);
     if ! [[ -f "$EMACS_INSTALL/bin/emacs" ]] || ! "$EMACS_INSTALL/bin/emacs" --version ; then
@@ -79,6 +81,7 @@ install:
         travis_retry wget https://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.xz ;
         tar xf emacs-26.1.tar.xz ;
         cd emacs-26.1 ;
+        patch -p1 <"$REPO_ROOT/test/0001-Fix-tracking-of-freed-global-values-when-module-asse.patch"
         ./autogen.sh ;
         ./configure --without-all --without-makeinfo --without-x --with-modules --prefix="$EMACS_INSTALL" >/dev/null || cat config.log;
         echo "Bulding Emacs" ;

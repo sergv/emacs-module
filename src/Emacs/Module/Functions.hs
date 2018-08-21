@@ -109,10 +109,10 @@ makeFunction f doc =
 provide
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => SymbolName -- ^ Feature to provide
-  -> m s (EmacsRef m s)
+  -> m s ()
 provide sym = do
   sym' <- intern sym
-  funcallPrimitive [esym|provide|] [sym']
+  funcallPrimitive_ [esym|provide|] [sym']
 
 {-# INLINE makeUserPtrFromStablePtr #-}
 -- | Pack a stable pointer as Emacs @user_ptr@.

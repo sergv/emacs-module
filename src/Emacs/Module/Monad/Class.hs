@@ -34,11 +34,11 @@ import Data.Emacs.Module.SymbolName (SymbolName)
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
-type EmacsFunction req opt rest s (m :: k -> Type -> Type)
+type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
   => EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
 
-type EmacsFunctionExtra req opt rest extra s (m :: k -> Type -> Type)
+type EmacsFunctionExtra req opt rest extra (s :: k) (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
   => EmacsArgs req opt rest (EmacsRef m s) -> Ptr extra -> m s (EmacsReturn m s)
 

@@ -86,19 +86,19 @@ apply2
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 apply2 (R f (R x Stop)) = do
   y <- funcallPrimitive [esym|funcall|] [f, x]
-  funcall [esym|funcall|] [f, y]
+  produceRef =<< funcall [esym|funcall|] [f, y]
 
 add
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 add (R x (R y Stop)) =
-  makeInt =<< (+) <$> extractInt x <*> extractInt y
+  produceRef =<< makeInt =<< (+) <$> extractInt x <*> extractInt y
 
 getRest
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsFunction ('S 'Z) 'Z 'True s m
 getRest (R _req (Rest rest)) =
-  funcall [esym|vector|] rest
+  produceRef =<< funcall [esym|vector|] rest
 
 appendLotsOfStrings
   :: forall m s. (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
@@ -107,11 +107,11 @@ appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
   -- foo'   <- makeString "foo"
   empty' <- makeString ""
-  let input :: [(m s (Value s), C8.ByteString)]
+  let input :: [(m s (EmacsRef m s), C8.ByteString)]
       input = replicate n' (makeString "foo", "foo")
       res = appendTree concat2' input
   res' <- traverse fst res
-  pure $ fromMaybe empty' res'
+  produceRef $ fromMaybe empty' res'
 
 appendLotsOfVectors
   :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
@@ -127,14 +127,14 @@ appendLotsOfVectors (R n Stop) = do
   let input = replicate n' (makeVector [one, two, three], [1, 2, 3])
       res = appendTree vconcat2' input
   res' <- traverse fst res
-  pure $ fromMaybe empty' res'
+  produceRef $ fromMaybe empty' res'
 
 
 concat2'
   :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
-  => (m s (Value s), C8.ByteString)
-  -> (m s (Value s), C8.ByteString)
-  -> (m s (Value s), C8.ByteString)
+  => (m s (EmacsRef m s), C8.ByteString)
+  -> (m s (EmacsRef m s), C8.ByteString)
+  -> (m s (EmacsRef m s), C8.ByteString)
 concat2' (x, xStr) (y, yStr) =
   (go, xStr <> yStr)
   where
@@ -148,9 +148,9 @@ concat2' (x, xStr) (y, yStr) =
 
 vconcat2'
   :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
-  => (m s (Value s), [Int])
-  -> (m s (Value s), [Int])
-  -> (m s (Value s), [Int])
+  => (m s (EmacsRef m s), [Int])
+  -> (m s (EmacsRef m s), [Int])
+  -> (m s (EmacsRef m s), [Int])
 vconcat2' (x, xs) (y, ys) =
   (go, xs <> ys)
   where

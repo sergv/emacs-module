@@ -275,6 +275,14 @@ extractStringUnchecked x =
 
 instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => MonadEmacs EmacsM where
 
+  type EmacsRef    EmacsM = Value
+  type EmacsReturn EmacsM = EmacsRef EmacsM
+
+  {-# INLINE produceRef #-}
+  produceRef x = do
+    _  <- Resource.unprotect $ valueReleaseHandle x
+    pure x
+
   {-# INLINE nonLocalExitCheck #-}
   nonLocalExitCheck = nonLocalExitCheck'
 
@@ -336,10 +344,12 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
       implementation env nargs argsPtr extraPtr' =
         Checked.uncheck (Proxy @UserError) $
           Exception.handle (reportAnyErrorToEmacs env) $
-            Checked.handle (reportEmacsThrowToEmacs env) $
-              runEmacsM env $ do
+            Checked.handle (reportEmacsThrowToEmacs env) $ do
+              res <- runEmacsM env $ do
                 v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeValue (\args -> emacsFun args extraPtr')
-                pure $! unGlobalRef $! valuePayload v
+                pure $! valuePayload v
+              Raw.freeGlobalRef env res
+              pure $ unGlobalRef res
 
   {-# INLINE funcall #-}
   funcall name args =

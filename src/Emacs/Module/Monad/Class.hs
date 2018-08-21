@@ -9,7 +9,9 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Emacs.Module.Monad.Class
   ( EmacsFunction
@@ -22,25 +24,35 @@ import Control.Exception.Safe.Checked (Throws)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
 import Data.Int
+import Data.Kind
 import Foreign.Ptr (Ptr)
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.SymbolName (SymbolName)
-import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
-type EmacsFunction req opt rest s (m :: * -> * -> *)
+type EmacsFunction req opt rest s (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => EmacsArgs req opt rest (Value s) -> m s (Value s)
+  => EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
 
-type EmacsFunctionExtra req opt rest extra s (m :: * -> * -> *)
+type EmacsFunctionExtra req opt rest extra s (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => EmacsArgs req opt rest (Value s) -> Ptr extra -> m s (Value s)
+  => EmacsArgs req opt rest (EmacsRef m s) -> Ptr extra -> m s (EmacsReturn m s)
 
-class MonadEmacs (m :: * -> * -> *) where
+class MonadEmacs (m :: k -> Type -> Type) where
+
+  -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
+  -- after 'm' finishes its execution.
+  type EmacsRef m :: k -> Type
+
+  -- | Type of values that Haskell functions may returns to Emacs.
+  type EmacsReturn m :: k -> Type
+
+  -- | Return an 'EmacsRef' back to Emacs.
+  produceRef :: EmacsRef m s -> m s (EmacsReturn m s)
 
   -- | Check whether a non-local exit is pending.
   nonLocalExitCheck :: WithCallStack => m s (FuncallExit ())
@@ -49,7 +61,7 @@ class MonadEmacs (m :: * -> * -> *) where
   -- in case it is.
   nonLocalExitGet
     :: WithCallStack
-    => m s (FuncallExit (Value s, Value s))
+    => m s (FuncallExit (EmacsRef m s, EmacsRef m s))
 
   -- | Equivalent to Emacs's @signal@ function.
   --
@@ -57,8 +69,8 @@ class MonadEmacs (m :: * -> * -> *) where
   -- overwrite it. In order to do that, use nonLocalExitClear.
   nonLocalExitSignal
     :: WithCallStack
-    => Value s   -- ^ Error symbol
-    -> [Value s] -- ^ Error data, will be converted to a list as Emacs API expects.
+    => EmacsRef m s   -- ^ Error symbol
+    -> [EmacsRef m s] -- ^ Error data, will be converted to a list as Emacs API expects.
     -> m s ()
 
   -- | Equivalent to Emacs's @throw@ function.
@@ -67,15 +79,15 @@ class MonadEmacs (m :: * -> * -> *) where
   -- overwrite it. In order to do that, use nonLocalExitClear.
   nonLocalExitThrow
     :: WithCallStack
-    => Value s -- ^ Tag
-    -> Value s -- ^ Data
+    => EmacsRef m s -- ^ Tag
+    -> EmacsRef m s -- ^ Data
     -> m s ()
 
   -- | Clean any pending local exits.
   nonLocalExitClear :: WithCallStack => m s ()
 
   -- | Make value eligible for collection during next GC within Emacs.
-  freeValue :: WithCallStack => Value s -> m s ()
+  freeValue :: WithCallStack => EmacsRef m s -> m s ()
 
   -- | Make Haskell function available as an anonymoucs Emacs
   -- function. In order to be able to use it later from Emacs it should
@@ -92,44 +104,44 @@ class MonadEmacs (m :: * -> * -> *) where
     => (forall s'. EmacsFunctionExtra req opt rest extra s' m) -- ^ Haskell function to export
     -> C8.ByteString                                           -- ^ Documentation
     -> Ptr extra                                               -- ^ Extra data to be passed to the Haskell function
-    -> m s (Value s)
+    -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
     :: WithCallStack
     => SymbolName -- ^ Function name
-    -> [Value s]  -- ^ Arguments
-    -> m s (Value s)
+    -> [EmacsRef m s]  -- ^ Arguments
+    -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function. The function should be simple and
   -- must not call back into Haskell.
   funcallPrimitive
     :: WithCallStack
     => SymbolName -- ^ Function name
-    -> [Value s]  -- ^ Arguments
-    -> m s (Value s)
+    -> [EmacsRef m s]  -- ^ Arguments
+    -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function and ignore its result. The function
   -- should be simple and must not call back into Haskell.
   funcallPrimitive_
     :: WithCallStack
     => SymbolName     -- ^ Function name
-    -> [Value s]  -- ^ Arguments
+    -> [EmacsRef m s]  -- ^ Arguments
     -> m s ()
 
   -- | Convert a string to an Emacs symbol.
   intern
     :: WithCallStack
     => SymbolName
-    -> m s (Value s)
+    -> m s (EmacsRef m s)
 
   -- | Get type of an Emacs value as an Emacs symbol.
   typeOf
     :: WithCallStack
-    => Value s -> m s (Value s)
+    => EmacsRef m s -> m s (EmacsRef m s)
 
   -- | Check whether Emacs value is not @nil@.
-  isNotNil :: WithCallStack => Value s -> m s Bool
+  isNotNil :: WithCallStack => EmacsRef m s -> m s Bool
 
   -- | Primitive equality. Tests whether two symbols, integers or
   -- characters are the equal, but not much more. For more complete
@@ -138,59 +150,59 @@ class MonadEmacs (m :: * -> * -> *) where
   -- > funcall [esym|equal|] [x, y]
   eq
     :: WithCallStack
-    => Value s -> Value s -> m s Bool
+    => EmacsRef m s -> EmacsRef m s -> m s Bool
 
 
   -- | Try to unpack a wide integer from a value.
-  extractWideInteger :: WithCallStack => Value s -> m s Int64
+  extractWideInteger :: WithCallStack => EmacsRef m s -> m s Int64
 
   -- | Pack a wide integer for Emacs.
-  makeWideInteger :: WithCallStack => Int64 -> m s (Value s)
+  makeWideInteger :: WithCallStack => Int64 -> m s (EmacsRef m s)
 
   -- | Try to unpack a floating-point number from a value.
-  extractDouble :: WithCallStack => Value s -> m s Double
+  extractDouble :: WithCallStack => EmacsRef m s -> m s Double
 
   -- | Convert a floating-point number into Emacs value.
-  makeDouble :: WithCallStack => Double -> m s (Value s)
+  makeDouble :: WithCallStack => Double -> m s (EmacsRef m s)
 
   -- | Extract string contents from an Emacs value.
-  extractString :: WithCallStack => Value s -> m s BS.ByteString
+  extractString :: WithCallStack => EmacsRef m s -> m s BS.ByteString
 
   -- | Convert a utf8-encoded ByteString into an Emacs value.
-  makeString :: WithCallStack => BS.ByteString -> m s (Value s)
+  makeString :: WithCallStack => BS.ByteString -> m s (EmacsRef m s)
 
 
   -- | Extract a user pointer from an Emacs value.
-  extractUserPtr :: WithCallStack => Value s -> m s (Ptr a)
+  extractUserPtr :: WithCallStack => EmacsRef m s -> m s (Ptr a)
 
   -- | Pack a user pointer into an Emacs value.
   makeUserPtr
     :: WithCallStack
     => UserPtrFinaliser a -- ^ Finalisation action that will be executed when user pointer gets garbage-collected by Emacs.
     -> Ptr a
-    -> m s (Value s)
+    -> m s (EmacsRef m s)
 
   -- | Set user pointer to a new value
-  assignUserPtr :: WithCallStack => Value s -> Ptr a -> m s ()
+  assignUserPtr :: WithCallStack => EmacsRef m s -> Ptr a -> m s ()
 
   -- | Extract a finaliser from an user_ptr.
   extractUserPtrFinaliser
-    :: WithCallStack => Value s -> m s (UserPtrFinaliser a)
+    :: WithCallStack => EmacsRef m s -> m s (UserPtrFinaliser a)
 
   -- | Assign new finaliser into an user_ptr.
   assignUserPtrFinaliser
-    :: WithCallStack => Value s -> UserPtrFinaliser a -> m s ()
+    :: WithCallStack => EmacsRef m s -> UserPtrFinaliser a -> m s ()
 
   -- | Extract an element from an Emacs vector.
-  vecGet :: WithCallStack => Value s -> Int -> m s (Value s)
+  vecGet :: WithCallStack => EmacsRef m s -> Int -> m s (EmacsRef m s)
 
   -- | Assign an element into an Emacs vector.
   vecSet
     :: WithCallStack
-    => Value s -- ^ Vector
-    -> Int     -- ^ Index
-    -> Value s -- ^ New value
+    => EmacsRef m s -- ^ Vector
+    -> Int          -- ^ Index
+    -> EmacsRef m s -- ^ New value
     -> m s ()
 
   -- | Get size of an Emacs vector.
-  vecSize :: WithCallStack => Value s -> m s Int
+  vecSize :: WithCallStack => EmacsRef m s -> m s Int

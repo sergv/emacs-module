@@ -8,6 +8,7 @@
 -- This module defines the implementation of the 'MonadEmacs'.
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -280,7 +281,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE produceRef #-}
   produceRef x = do
-    _  <- Resource.unprotect $ valueReleaseHandle x
+    _ <- Resource.unprotect $ valueReleaseHandle x
     pure x
 
   {-# INLINE nonLocalExitCheck #-}
@@ -348,7 +349,9 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
               res <- runEmacsM env $ do
                 v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeValue (\args -> emacsFun args extraPtr')
                 pure $! valuePayload v
+#ifndef MODULE_ASSERTIONS
               Raw.freeGlobalRef env res
+#endif
               pure $ unGlobalRef res
 
   {-# INLINE funcall #-}

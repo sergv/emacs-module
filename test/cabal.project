@@ -6,7 +6,7 @@ packages:
 --   ghc-options: -g3
 
 constraints:
-  emacs-module +assertions
+  emacs-module +assertions +module-assertions
 
 library-profiling: False
 debug-info: True

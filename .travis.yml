@@ -119,7 +119,7 @@ script:
   - cd "${TESTDIR}/test/"
 
   - |
-      echo -e "packages: ${PKGDIR}/emacs-module.cabal emacs-module-test.cabal\nconstraints: emacs-module +assertions\npackage emacs-module\n  ghc-options: -Werror\npackage emacs-module-test\n  ghc-options: -Werror\nlibrary-profiling: False" >cabal.project
+      echo -e "packages: ${PKGDIR}/emacs-module.cabal emacs-module-test.cabal\nconstraints: emacs-module +assertions +module-assertions\npackage emacs-module\n  ghc-options: -Werror\npackage emacs-module-test\n  ghc-options: -Werror\nlibrary-profiling: False" >cabal.project
 
   - cabal new-configure $ALLOW_NEWER_FLAG
   - cabal new-build

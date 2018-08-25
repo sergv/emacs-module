@@ -44,6 +44,7 @@ before_install:
 
   - sudo add-apt-repository ppa:hvr/ghc -y
   - sudo apt-get update -q
+  - sudo apt-get build-dep emacs -y
   - sudo apt-get install ghc-$GHC cabal-install-$CABALVER autoconf automake autotools-dev build-essential gcc libtool quilt sharutils -y
 
   - export PATH="/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH"
@@ -83,7 +84,7 @@ install:
         cd emacs-26.1 ;
         patch -p1 <"$REPO_ROOT/test/0001-Fix-tracking-of-freed-global-values-when-module-asse.patch"
         ./autogen.sh ;
-        ./configure --without-all --without-makeinfo --without-x --with-modules --prefix="$EMACS_INSTALL" >/dev/null || cat config.log;
+        ./configure --without-makeinfo --without-gif --without-rsvg --without-lcms2 --without-libsystemd --without-cairo --without-xml2 --without-imagemagick --without-xfc --without-libotf --without-m17n-flt --without-tiff --without-jpeg --without-xpm --without-sound --without-pop --without-mailutils --without-hesiod --without-kerberos --without-kerberos5 --without-zlib --with-modules --prefix="$EMACS_INSTALL" >/dev/null || cat config.log;
         echo "Bulding Emacs" ;
         make bootstrap -j2 >/dev/null ;
         echo "Installing Emacs" ;

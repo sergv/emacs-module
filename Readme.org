@@ -1,0 +1,42 @@
+#+STARTUP: content
+
+* A Haskell package for writing Emacs modules
+
+  [[https://img.shields.io/badge/license-BSD_3-green.svg?dummy]]
+  [[https://travis-ci.org/sergv/emacs-module][https://travis-ci.org/sergv/emacs-module.svg?branch=master]]
+
+** Why would anyone want to write Emacs modules in Haskell?
+   Emacs Lisp is not a young language and can go quite a long way, but
+   it has a couple of issues that are not going to be solved any time soon:
+
+   - It’s dynamically typed which makes refactoring large extensions a pain
+   - It’s intepreted and is quite slow. It might be argued that editors don’t
+     need much computing power, but from time to time computation-intensive
+     tasks to occur. For example, fuzzy matching provided by the cool
+     [[https://github.com/lewang/flx][flx.el]] package and used by great
+     [[https://github.com/abo-abo/swiper][ivy.el]] package to quickly find things.
+   - Somewhat related to the previous point, there’s virtually no support
+     for parallelising computataions. There’re [[https://www.gnu.org/software/emacs/draft/manual/html_node/elisp/Threads.html][adavances]] on adding threads
+     to Emacs lisp, but this only provides [[https://stackoverflow.com/questions/1050222/what-is-the-difference-between-concurrency-and-parallelism][concurrency, but no parallelism]].
+
+   Haskell is well known for solving points 1 and 3 outlined above.
+   For me it also solves point 2 by providing enough performance and adding
+   parallelism on top of it.
+
+   If you think this might be a good idea and would like to see what
+   this package can do for you, you can look at part of
+   [[https://github.com/sergv/emacs-native/tree/master/lib/Emacs][my emacs config]]
+   that uses this package to implement things like
+
+   - Rewrite of ~flx.el~ that leverages parallelism
+   - Fast search across filesystem
+   - Concurrrent grep reimplementation (yeah, it’s dubious since things like ~ripgrep~ exist)
+
+** Known issues
+   No easy Windows support due to Cabal not being able to build a dll from
+   ~foreign-library~ specification in a cabal file. But dll can be built by
+   hand using vanilla ghc.
+
+** Supported GHC versions
+
+Tested with GHC `8.0.2`, `8.2.2`, `8.4.2`.

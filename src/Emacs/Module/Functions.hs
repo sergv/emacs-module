@@ -50,6 +50,7 @@ module Emacs.Module.Functions
   , addFaceProp
   , concat2
   , valueToText
+  , symbolName
 
     -- * Reexports
   , MonadMask
@@ -369,6 +370,7 @@ concat2
 concat2 x y =
   funcallPrimitive [esym|concat|] [x, y]
 
+{-# INLINE valueToText #-}
 -- | Convert an Emacs value into a string using @prin1-to-string@.
 valueToText
   :: (WithCallStack, MonadEmacs m, Monad (m s))
@@ -376,3 +378,12 @@ valueToText
   -> m s Text
 valueToText x =
   extractText =<< funcallPrimitive [esym|prin1-to-string|] [x]
+
+{-# INLINE symbolName #-}
+-- | Wrapper around Emacs @symbol-name@ function - take a symbol
+-- and produce an Emacs string with its textual name.
+symbolName
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => EmacsRef m s
+  -> m s (EmacsRef m s)
+symbolName = funcallPrimitive [esym|symbol-name|] . (:[])

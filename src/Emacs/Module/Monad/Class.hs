@@ -109,7 +109,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
     :: WithCallStack
-    => SymbolName -- ^ Function name
+    => SymbolName      -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
@@ -117,7 +117,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- must not call back into Haskell.
   funcallPrimitive
     :: WithCallStack
-    => SymbolName -- ^ Function name
+    => SymbolName      -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
@@ -126,7 +126,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   funcallPrimitive_
     :: WithCallStack
     => SymbolName     -- ^ Function name
-    -> [EmacsRef m s]  -- ^ Arguments
+    -> [EmacsRef m s] -- ^ Arguments
     -> m s ()
 
   -- | Convert a string to an Emacs symbol.

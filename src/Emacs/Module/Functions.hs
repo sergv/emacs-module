@@ -294,8 +294,8 @@ setcar
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
-  -> m s (EmacsRef m s)
-setcar x y = funcallPrimitive [esym|setcar|] [x, y]
+  -> m s ()
+setcar x y = funcallPrimitive_ [esym|setcar|] [x, y]
 
 {-# INLINE setcdr #-}
 -- | Mutate second element of a cons pair.
@@ -303,8 +303,8 @@ setcdr
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
-  -> m s (EmacsRef m s)
-setcdr x y = funcallPrimitive [esym|setcdr|] [x, y]
+  -> m s ()
+setcdr x y = funcallPrimitive_ [esym|setcdr|] [x, y]
 
 {-# INLINE makeList #-}
 -- | Construct vanilla Emacs list from a Haskell list.

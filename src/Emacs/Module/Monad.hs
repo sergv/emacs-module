@@ -75,6 +75,17 @@ data Environment = Environment
   , eResourceState :: !Resource.InternalState
   }
 
+-- | Concrete monad for interacting with Emacs. It provides:
+--
+-- 1. Ability to call Emacs C functions and automatically rethrows any
+--    errors (non-local exits) from elisp as Haskell exceptions.
+-- 2. Tracks ownership of any produced Emacs values and communicates
+--    that to Emacs, so that GC on Emacs side will not make any
+--    values in Haskell invalid (funnily enough, this can happen!).
+--
+-- Parameter 's' serves to make ownership-tracking capabilities possible.
+-- It's use is the same as in 'Control.Monad.ST' monad. That is, it creates
+-- local threads so that no produced Emacs values can leave past 'runEmacsM'.
 newtype EmacsM s a = EmacsM { unEmacsM :: ReaderT Environment IO a }
   deriving
     ( Functor
@@ -100,6 +111,7 @@ instance MonadBaseControl IO (EmacsM s) where
   {-# INLINE restoreM #-}
   restoreM x = EmacsM (restoreM x)
 
+-- | Execute emacs interaction session using an environment supplied by Emacs.
 runEmacsM
   :: Env
   -> (forall s. EmacsM s a)

@@ -9,7 +9,12 @@ synopsis:
 
 description:
   This package provides a full set of bindings to emacs-module.h that
-  allows to develop Emacs modules in Haskell.
+  allows to develop Emacs modules in Haskell. Bindings are based on
+  Emacs 25 version of the interface and thus should work in all
+  subsequent versions of Emacs.
+
+  For pointers on how to write minimal Emacs module, please refer
+  to https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs
 
 license:
   BSD3

@@ -34,14 +34,25 @@ import Data.Emacs.Module.SymbolName (SymbolName)
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
+-- | Basic Haskell function that can be called by Emacs.
 type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
   => EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
 
+-- | A Haskell functions that is callable by Emacs.
+--
+-- This type differs from 'EmacsFunction' in that it has an extra
+-- parameter which will result in an additional pointer being passed
+-- to this function when it's called by Emacs. Contents of the pointer is
+-- specified when function is exported to Emacs.
 type EmacsFunctionExtra req opt rest extra (s :: k) (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
   => EmacsArgs req opt rest (EmacsRef m s) -> Ptr extra -> m s (EmacsReturn m s)
 
+-- | A mtl-style typeclass for interacting with Emacs. Typeclass functions
+-- are mostly direct translations of emacs interface provided by 'emacs-module.h'.
+--
+-- For more functions please refer to "Emacs.Module.Functions" module.
 class MonadEmacs (m :: k -> Type -> Type) where
 
   -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
@@ -66,7 +77,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- | Equivalent to Emacs's @signal@ function.
   --
   -- NB if a non-local exit is alredy pending, this function will not
-  -- overwrite it. In order to do that, use nonLocalExitClear.
+  -- overwrite it. In order to do that, use 'nonLocalExitClear'.
   nonLocalExitSignal
     :: WithCallStack
     => EmacsRef m s   -- ^ Error symbol
@@ -76,7 +87,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- | Equivalent to Emacs's @throw@ function.
   --
   -- NB if a non-local exit is alredy pending, this function will not
-  -- overwrite it. In order to do that, use nonLocalExitClear.
+  -- overwrite it. In order to do that, use 'nonLocalExitClear'.
   nonLocalExitThrow
     :: WithCallStack
     => EmacsRef m s -- ^ Tag
@@ -147,7 +158,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- characters are the equal, but not much more. For more complete
   -- equality comparison do
   --
-  -- > funcall [esym|equal|] [x, y]
+  -- > funcallPrimitive [esym|equal|] [x, y]
   eq
     :: WithCallStack
     => EmacsRef m s -> EmacsRef m s -> m s Bool

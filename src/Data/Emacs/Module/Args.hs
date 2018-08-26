@@ -6,11 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns           #-}
 {-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DeriveFoldable         #-}
-{-# LANGUAGE DeriveFunctor          #-}
-{-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE GADTs                  #-}
@@ -19,7 +15,6 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE PolyKinds              #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -48,6 +43,9 @@ import Foreign.C.Types (CPtrdiff)
 import Data.Emacs.Module.Raw.Env (variadicFunctionArgs)
 import Data.Emacs.Module.Raw.Value
 
+-- | Type-level Peano numbers.
+--
+-- Indented to be used with @DataKinds@ extension enabled.
 data Nat = Z | S Nat
 
 class NatValue (n :: Nat) where
@@ -61,42 +59,35 @@ instance forall n. NatValue n => NatValue ('S n) where
   {-# INLINE natValue #-}
   natValue _ = 1 + natValue (Proxy @n)
 
--- type family EmacsArgs' (req :: Nat) (m :: Type -> Type) (a :: Type) = (r :: Type) | r -> req m a where
---   EmacsArgs' ('S n) m a = RawValue       -> EmacsArgs' n  m a
---   -- EmacsArgs 'Z     m a = Maybe RawValue -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [RawValue]     -> m a
---   EmacsArgs' 'Z     m a = m a
-
--- type family EmacsArgs' (req :: Nat) (a :: Type) = (r :: Type) | r -> req
---
--- type instance EmacsArgs' ('S n) a = RawValue -> EmacsArgs' n a
---   -- EmacsArgs 'Z     m a = Maybe RawValue -> EmacsArgs' 'Z k   rest m a
---   -- EmacsArgs 'Z     m a = [RawValue]     -> m a
--- type instance EmacsArgs' 'Z     a = IO a
-
--- | Required argument.
+-- | Required argument of an exported function.
 data R a b = R !a !b
 
--- | Optional argument.
+-- | Optional argument of an exported function.
 data O a b = O !(Maybe a) !b
 
--- | All other arguments as a list.
+-- | All other arguments of an exported function as a list.
 newtype Rest a = Rest [a]
 
--- | No more arguments.
+-- | End of argument list of an exported funciton.
 data Stop a = Stop
 
+-- | Specification of the arguments that exposed functions can receive from Emacs.
+--
+-- This type family allows to declaratively specify how many required and
+-- optional arguments a function can take and whether it accepts rest arguments.
+-- It's a direct translation of argument lists in Emacs lisp, e.g.
+--
+-- > (defun foo (x y z &optional w t &rest quux)
+-- >   (+ (* x y z) (* (or w 1) (or t 2)) (length quux)))
+--
+-- The function above has 3 required arguments, 2 optional and also has
+-- rest arguments. The type family below has two 'Nat's and one 'Bool'
+-- to provide that info.
 type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (a :: Type) = (r :: Type) | r -> req opt rest a where
   EmacsArgs ('S n) opt    rest   a = R a (EmacsArgs n  opt rest a)
   EmacsArgs 'Z     ('S k) rest   a = O a (EmacsArgs 'Z k   rest a)
   EmacsArgs 'Z     'Z     'True  a = Rest a
   EmacsArgs 'Z     'Z     'False a = Stop a
-
--- type family EmacsArgs (req :: Nat) (opt :: Nat) (rest :: Bool) (s :: Type) (a :: Type) = (r :: Type) | r -> req opt rest where
---   EmacsArgs ('S n) opt    rest   s a = Value s         -> EmacsArgs n  opt rest s a
---   EmacsArgs 'Z     ('S k) rest   s a = Maybe (Value s) -> EmacsArgs 'Z k   rest s a
---   EmacsArgs 'Z     'Z     'True  s a = [Value s]       -> IO a
---   EmacsArgs 'Z     'Z     'False s a = IO a
 
 class EmacsInvocation req opt rest where
   supplyEmacsArgs
@@ -164,6 +155,7 @@ instance EmacsInvocation n opt rest => EmacsInvocation ('S n) opt rest where
     supplyEmacsArgs (nargs - 1) (advanceEmacsValuePtr startPtr) mkArg (f . R arg)
 
 
+-- | Helper to retrieve number of arguments a function takes for Emacs.
 class GetArities (req :: Nat) (opt :: Nat) (rest :: Bool) where
   arities :: Proxy req -> Proxy opt -> Proxy rest -> (CPtrdiff, CPtrdiff)
 

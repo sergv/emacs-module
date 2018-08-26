@@ -21,6 +21,9 @@ import Data.Kind (Constraint)
 import GHC.Stack (HasCallStack)
 #endif
 
+-- | Call stacks for all emacs-related functions in Haskell.
+-- Will be disabled unless this package was build with 'assertions'
+-- flag enabled.
 #ifdef ASSERTIONS
 type WithCallStack = (HasCallStack :: Constraint)
 #else

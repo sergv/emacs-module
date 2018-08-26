@@ -32,10 +32,16 @@
    - Fast search across filesystem
    - Concurrrent grep reimplementation (yeah, it’s dubious since things like ~ripgrep~ exist)
 
-** Known issues
-   No easy Windows support due to Cabal not being able to build a dll from
-   ~foreign-library~ specification in a cabal file. But dll can be built by
-   hand using vanilla ghc.
+** FAQ
+*** How do I start writing my own extensions?
+    Some day there will be a proper tutorial for using this package.
+    For the time being the best place to start is
+    [[https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs][this package’s tests]].
+
+*** What about Windows?
+    No out-of-the-box Windows support due to Cabal not being able to
+    build a dll from ~foreign-library~ specification in a cabal file.
+    But dll can be built by hand using vanilla ghc.
 
 ** Supported GHC versions
 

@@ -9,10 +9,9 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE RankNTypes       #-}
-
-{-# OPTIONS_HADDOCK not-home #-}
 
 module Emacs.Module.Functions
   ( bindFunction
@@ -45,7 +44,10 @@ module Emacs.Module.Functions
   , setcdr
   , makeList
   , extractList
-  , extractListRev
+  , extractListWith
+  , extractListRevWith
+  , foldlEmacsListWith
+  , unfoldEmacsListWith
     -- * Strings
   , addFaceProp
   , concat2
@@ -312,14 +314,11 @@ makeList
   :: (WithCallStack, MonadEmacs m, Monad (m s), Foldable f)
   => f (EmacsRef m s)
   -> m s (EmacsRef m s)
-makeList xs = do
-  nil' <- nil
-  go nil' $ reverse $ toList xs
+makeList = unfoldEmacsListWith (pure . go) . toList
   where
-    go end []       = pure end
-    go end (y : ys) = do
-      end' <- cons y end
-      go end' ys
+    go = \case
+      []     -> Nothing
+      y : ys -> Just (y, ys)
 
 {-# INLINE extractList #-}
 -- | Extract vanilla Emacs list as Haskell list.
@@ -327,26 +326,82 @@ extractList
   :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsRef m s
   -> m s [EmacsRef m s]
-extractList = fmap reverse . extractListRev
+extractList = extractListWith pure
 
-{-# INLINE extractListRev #-}
+{-# INLINE extractListWith #-}
+-- | Extract vanilla Emacs list as a Haskell list.
+extractListWith
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => (EmacsRef m s -> m s a)
+  -> EmacsRef m s
+  -> m s [a]
+extractListWith = \f -> fmap reverse . extractListRevWith f
+
+{-# INLINE extractListRevWith #-}
 -- | Extract vanilla Emacs list as a reversed Haskell list. It's more
 -- efficient than 'extractList' but doesn't preserve order of elements
 -- that was specified from Emacs side.
-extractListRev
+extractListRevWith
   :: (WithCallStack, MonadEmacs m, Monad (m s))
-  => EmacsRef m s
-  -> m s [EmacsRef m s]
-extractListRev = go []
+  => (EmacsRef m s -> m s a)
+  -> EmacsRef m s
+  -> m s [a]
+extractListRevWith f = go []
   where
     go acc xs = do
       nonNil <- isNotNil xs
       if nonNil
         then do
-          x   <- car xs
+          x   <- f =<< car xs
           xs' <- cdr xs
           go (x : acc) xs'
         else pure acc
+
+{-# INLINE foldlEmacsListWith #-}
+-- | Fold Emacs list starting from the left.
+foldlEmacsListWith
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => (a -> EmacsRef m s -> m s a)
+  -> a
+  -> EmacsRef m s
+  -> m s a
+foldlEmacsListWith f = go
+  where
+    go acc xs = do
+      nonNil <- isNotNil xs
+      if nonNil
+        then do
+          acc' <- f acc =<< car xs
+          go acc' =<< cdr xs
+        else pure acc
+
+{-# INLINE unfoldEmacsListWith #-}
+-- | Fold Emacs list starting from the left.
+unfoldEmacsListWith
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => (a -> m s (Maybe (EmacsRef m s, a)))
+  -> a
+  -> m s (EmacsRef m s)
+unfoldEmacsListWith f accum = do
+  accum' <- f accum
+  nilVal <- nil
+  case accum' of
+    Nothing         -> pure nilVal
+    Just (x, accum'') -> do
+      cell <- cons x nilVal
+      go nilVal accum'' cell
+      pure cell
+  where
+    go nilVal = go'
+      where
+        go' acc cell = do
+          acc' <- f acc
+          case acc' of
+            Nothing         -> pure ()
+            Just (x, acc'') -> do
+              cell' <- cons x nilVal
+              setcdr cell cell'
+              go' acc'' cell'
 
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.

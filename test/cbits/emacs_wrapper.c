@@ -9,8 +9,8 @@
 int plugin_is_GPL_compatible = 1;
 
 HsBool init(void) {
-  int argc = 2;
-  char *argv[] = { "+RTS", "-A32m", NULL };
+  int argc = 0;
+  char *argv[] = { NULL };
   char **pargv = argv;
 
   // Initialize Haskell runtime

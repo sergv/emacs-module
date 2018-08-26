@@ -39,4 +39,4 @@
 
 ** Supported GHC versions
 
-Tested with GHC `8.0.2`, `8.2.2`, `8.4.2`.
+Tested with GHC ~8.0.2~, ~8.2.2~, ~8.4.2~.

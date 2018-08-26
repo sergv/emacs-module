@@ -1,7 +1,7 @@
 name:
   emacs-module
 version:
-  0.1.0.0
+  0.1
 category: Foreign, Foreign binding
 
 synopsis:
@@ -21,7 +21,7 @@ maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 stability: stable
 tested-with:
-    GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.2
+    GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.3
 extra-source-files:
   cbits/emacs-module.h
 

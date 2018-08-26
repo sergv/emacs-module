@@ -79,6 +79,8 @@ initialise' = do
     makeFunction appendLotsOfStrings "Append foo string N times to itself."
   bindFunction [esym|haskell-emacs-module-tests-append-lots-of-vectors|] =<<
     makeFunction appendLotsOfVectors "Append [1 2 3] vector N times to itself."
+  bindFunction [esym|haskell-emacs-module-tests-replicate|] =<<
+    makeFunction emacsReplicate "Replicate an item N times"
   pure True
 
 apply2
@@ -129,6 +131,12 @@ appendLotsOfVectors (R n Stop) = do
   res' <- traverse fst res
   produceRef $ fromMaybe empty' res'
 
+emacsReplicate
+  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
+emacsReplicate (R n (R x Stop)) = do
+  n' <- extractInt n
+  produceRef =<< makeList (replicate n' x)
 
 concat2'
   :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
@@ -162,7 +170,6 @@ vconcat2' (x, xs) (y, ys) =
           _ <- funcallPrimitive [esym|garbage-collect|] []
           vconcat2 x'' y''
 
-
 appendTree :: WithCallStack => (a -> a -> a) -> [a] -> Maybe a
 appendTree f = reduce
   where
@@ -173,4 +180,3 @@ appendTree f = reduce
     reduce []  = Nothing
     reduce [x] = Just x
     reduce xs  = reduce (go xs)
-

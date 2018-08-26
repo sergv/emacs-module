@@ -11,9 +11,11 @@
 module Data.Emacs.Module.SymbolName.Internal
   ( SymbolName(..)
   , mkSymbolName
+  , mkSymbolNameShortByteString
   , useSymbolNameAsCString
   ) where
 
+import qualified Data.ByteString.Short as BSS
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Unsafe as C8.Unsafe
 import qualified Data.Text.Encoding as TE
@@ -30,6 +32,10 @@ instance Pretty SymbolName where
 {-# INLINE mkSymbolName #-}
 mkSymbolName :: C8.ByteString -> SymbolName
 mkSymbolName = SymbolName . (`C8.snoc` '\0')
+
+{-# INLINE mkSymbolNameShortByteString #-}
+mkSymbolNameShortByteString :: BSS.ShortByteString -> SymbolName
+mkSymbolNameShortByteString = mkSymbolName . BSS.fromShort
 
 {-# INLINE useSymbolNameAsCString #-}
 useSymbolNameAsCString :: SymbolName -> (CString -> IO a) -> IO a

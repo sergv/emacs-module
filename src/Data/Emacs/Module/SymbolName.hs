@@ -9,6 +9,7 @@
 module Data.Emacs.Module.SymbolName
   ( SymbolName
   , mkSymbolName
+  , mkSymbolNameShortByteString
   , useSymbolNameAsCString
   ) where
 

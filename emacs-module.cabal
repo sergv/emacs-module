@@ -52,7 +52,7 @@ flag assertions
 
 flag module-assertions
   description:
-    Bulid plugin that is plugin indentended to be used with Emacs's
+    Bulid plugin that is plugin intended to be used with Emacs's
     '--module-assertions' enabled. Plugin will not free any global values
     returned to Emacs and thus have an ever-growing memory leak.
   default:

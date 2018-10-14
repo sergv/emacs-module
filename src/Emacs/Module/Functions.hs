@@ -50,6 +50,7 @@ module Emacs.Module.Functions
   , unfoldEmacsListWith
     -- * Strings
   , addFaceProp
+  , propertize
   , concat2
   , valueToText
   , symbolName
@@ -411,9 +412,19 @@ addFaceProp
   -> SymbolName         -- ^ Face name
   -> m s (EmacsRef m s) -- ^ Propertised string
 addFaceProp str face = do
-  faceSym  <- intern [esym|face|]
-  face'    <- intern face
-  funcallPrimitive [esym|propertize|] [str, faceSym, face']
+  face' <- intern face
+  propertize str [([esym|face|], face')]
+
+{-# INLINE propertize #-}
+-- | Add new 'face property to a string.
+propertize
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  => EmacsRef m s                 -- ^ String to add properties to
+  -> [(SymbolName, EmacsRef m s)] -- ^ Properties
+  -> m s (EmacsRef m s)           -- ^ Propertised string
+propertize str props = do
+  props' <- traverse (\(name, val) -> (\name' -> [name', val]) <$> intern name) props
+  funcallPrimitive [esym|propertize|] (str : concat props')
 
 {-# INLINE concat2 #-}
 -- | Concatenate two strings.

@@ -16,7 +16,7 @@ it has a couple of issues that are not going to be solved any time soon:
       [[https://github.com/lewang/flx][flx.el]] package and used by great
       [[https://github.com/abo-abo/swiper][ivy.el]] package to quickly find things.
     - Somewhat related to the previous point, there’s virtually no support
-      for parallelising computataions. There’re [[https://www.gnu.org/software/emacs/draft/manual/html_node/elisp/Threads.html][adavances]] on adding threads
+      for parallelising computations. There’re [[https://www.gnu.org/software/emacs/draft/manual/html_node/elisp/Threads.html][adavances]] on adding threads
       to Emacs lisp, but this only provides [[https://stackoverflow.com/questions/1050222/what-is-the-difference-between-concurrency-and-parallelism][concurrency, but no parallelism]].
 
       Haskell is well known for solving points 1 and 3 outlined above.

@@ -41,6 +41,21 @@ For the time being the best place to start is
 *** What about Windows?
 It works, Cabal can build a dll for you.
 
+*** How it’s related to [[https://github.com/knupfer/haskell-emacs][haskell-emacs]]?
+The ~haskell-emacs~ aims to address the same problem - writing Emacs
+extensions in Haskell, but uses different approach. It seems to use
+some kind of marshalling scheme to make Emacs data available in
+Haskell with a caveat that not all Emacs types can be converted (e.g.
+buffers cannot be typically serialised). Presumably, an extension
+built with this project will look like an executable that reads sexps
+from stdin and produces output on stdout. Or, possibly, as a daemon
+process that communicates with Emacs over network.
+
+This project is a bit different. It wraps Emacs C API for writing new
+extensions that can manipulate Emacs values directly, without
+marhsalling. In this approach, an extension will look like a shared
+library/dll that can be loaded by standard emacs with ~(load "/tmp/libmy-ext.so")~.
+
 ** Supported GHC versions
 
 Tested with GHC ~8.0.2~, ~8.2.2~, ~8.4.4~, ~8.6.3~.

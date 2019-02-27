@@ -12,7 +12,7 @@ it has a couple of issues that are not going to be solved any time soon:
     - It’s dynamically typed which makes refactoring large extensions a pain
     - It’s intepreted and is quite slow. It might be argued that editors don’t
       need much computing power, but from time to time computation-intensive
-      tasks to occur. For example, fuzzy matching provided by the cool
+      tasks do occur. For example, fuzzy matching provided by the cool
       [[https://github.com/lewang/flx][flx.el]] package and used by great
       [[https://github.com/abo-abo/swiper][ivy.el]] package to quickly find things.
     - Somewhat related to the previous point, there’s virtually no support

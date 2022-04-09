@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Emacs.Module
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- This module is the entry point for writing Emacs extensions in
@@ -24,7 +24,8 @@
 -- With help of this package, it may be defined as
 --
 -- @
--- {-# LANGUAGE DataKinds   #-}
+-- {-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 -- {-# LANGUAGE QuasiQuotes #-}
 --
 -- import Data.Maybe
@@ -99,7 +100,7 @@ import Control.Exception.Safe.Checked (MonadThrow, Throws)
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (Env)
-import qualified Data.Emacs.Module.Raw.Env as Raw
+import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Value
 import Emacs.Module.Errors
 import Emacs.Module.Functions

@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.Emacs.Module.Args
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
@@ -19,6 +19,7 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Data.Emacs.Module.Args
   ( Nat(..)

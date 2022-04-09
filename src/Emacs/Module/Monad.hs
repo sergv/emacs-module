@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Emacs.Module.Monad
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- This module defines the implementation of the 'MonadEmacs'.
@@ -14,6 +14,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
@@ -30,35 +31,35 @@ module Emacs.Module.Monad
   , runEmacsM
   ) where
 
-import qualified Control.Exception as Exception
-import qualified Control.Monad.Catch as Catch
-import Control.Exception.Safe.Checked (MonadThrow, Throws)
-import qualified Control.Exception.Safe.Checked as Checked
+import Control.Exception qualified as Exception
+import Control.Monad.Catch qualified as Catch
+import Control.Exception.Safe.Checked (Throws)
+import Control.Exception.Safe.Checked qualified as Checked
 import Control.Monad.Base
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource as Resource
 
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as C8
 import Data.Coerce
 import Data.Proxy
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Encoding.Error as TE
-import Data.Text.Prettyprint.Doc
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
+import Data.Text.Encoding.Error qualified as TE
 import Data.Traversable
 import Data.Void
 import Foreign (Storable(..))
 import Foreign.C.Types
 import Foreign.Marshal.Array
 import Foreign.Ptr (Ptr, nullPtr)
+import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.NonNullPtr
-import qualified Data.Emacs.Module.Raw.Env as Raw
+import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType, exportToEmacs)
 import Data.Emacs.Module.Raw.Value (RawValue, GlobalRef(..))
 import Data.Emacs.Module.SymbolName (SymbolName, useSymbolNameAsCString)
@@ -173,7 +174,7 @@ nonLocalExitGet' = do
   liftIO $ do
     x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet eEnv eErrorSym eErrorData
     for x $ \_ ->
-      (,) <$> (peek (unNonNullPtr eErrorSym)) <*> (peek (unNonNullPtr eErrorData))
+      (,) <$> peek (unNonNullPtr eErrorSym) <*> peek (unNonNullPtr eErrorData)
 
 {-# INLINE nonLocalExitClear' #-}
 nonLocalExitClear' :: WithCallStack => EmacsM s ()

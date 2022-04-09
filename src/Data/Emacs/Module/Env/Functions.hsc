@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.Emacs.Module.Env.Functions
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
@@ -23,7 +23,6 @@ module Data.Emacs.Module.Env.Functions
   ) where
 
 import Data.Data (Data)
-import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 
@@ -37,7 +36,7 @@ data FuncallExit a =
     FuncallExitSignal a
   | -- | Function has exit using @throw@.
     FuncallExitThrow a
-  deriving (Eq, Ord, Show, Data, Generic, Lift, Typeable, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Data, Generic, Lift, Functor, Foldable, Traversable)
 
 funcallExitToNum :: Num a => FuncallExit b -> a
 funcallExitToNum = \case

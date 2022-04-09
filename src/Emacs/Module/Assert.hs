@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Emacs.Module.Assert
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
@@ -36,6 +36,6 @@ emacsAssert True  _   = id
 emacsAssert False msg = error $ "Assertion failed: " ++ msg
 #else
 {-# INLINE emacsAssert #-}
-emacsAssert :: WithCallStack => Bool -> String -> a -> a
+emacsAssert :: Bool -> String -> a -> a
 emacsAssert _ _ = id
 #endif

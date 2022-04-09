@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.Emacs.Module.Value.Internal
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 

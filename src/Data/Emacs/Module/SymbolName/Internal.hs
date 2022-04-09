@@ -2,9 +2,11 @@
 -- |
 -- Module      :  Data.Emacs.Module.SymbolName.Internal
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
+
+{-# LANGUAGE ImportQualifiedPost #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
 
@@ -15,13 +17,13 @@ module Data.Emacs.Module.SymbolName.Internal
   , useSymbolNameAsCString
   ) where
 
-import qualified Data.ByteString.Short as BSS
-import qualified Data.ByteString.Char8 as C8
-import qualified Data.ByteString.Unsafe as C8.Unsafe
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Encoding.Error as TE
-import Data.Text.Prettyprint.Doc
+import Data.ByteString.Char8 qualified as C8
+import Data.ByteString.Short qualified as BSS
+import Data.ByteString.Unsafe qualified as C8.Unsafe
+import Data.Text.Encoding qualified as TE
+import Data.Text.Encoding.Error qualified as TE
 import Foreign.C.String
+import Prettyprinter
 
 newtype SymbolName = SymbolName { unSymbolName :: C8.ByteString }
   deriving (Eq, Ord, Show)

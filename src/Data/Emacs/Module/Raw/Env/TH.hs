@@ -2,10 +2,11 @@
 -- |
 -- Module      :  Data.Emacs.Module.Raw.Env.TH
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
@@ -27,11 +28,19 @@ decomposeFunctionType = go []
       AppT (AppT ArrowT x) y -> go (x : args) y
       ret                    -> (reverse args, ret)
 
+#if MIN_VERSION_template_haskell(2, 17, 0)
+unwrapForall :: Type -> (Maybe ([TyVarBndr Specificity], Cxt), Type)
+#else
 unwrapForall :: Type -> (Maybe ([TyVarBndr], Cxt), Type)
+#endif
 unwrapForall (ForallT bs c t) = (Just (bs, c), t)
 unwrapForall t                = (Nothing, t)
 
+#if MIN_VERSION_template_haskell(2, 17, 0)
+wrapForall :: Maybe ([TyVarBndr Specificity], Cxt) -> Type -> Type
+#else
 wrapForall :: Maybe ([TyVarBndr], Cxt) -> Type -> Type
+#endif
 wrapForall Nothing        = id
 wrapForall (Just (bs, c)) = ForallT bs c
 

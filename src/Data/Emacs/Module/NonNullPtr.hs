@@ -2,7 +2,7 @@
 -- |
 -- Module      :  Data.Emacs.Module.NonNullPtr
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
@@ -35,5 +35,5 @@ allocaNonNull :: Storable a => (NonNullPtr a -> IO b) -> IO b
 allocaNonNull f = alloca (f . NonNullPtr)
 
 {-# INLINE allocaBytesNonNull #-}
-allocaBytesNonNull :: Storable a => Int -> (NonNullPtr a -> IO b) -> IO b
+allocaBytesNonNull :: Int -> (NonNullPtr a -> IO b) -> IO b
 allocaBytesNonNull n f = allocaBytes n (f . NonNullPtr)

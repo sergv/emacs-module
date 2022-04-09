@@ -2,11 +2,12 @@
 -- |
 -- Module      :  Data.Emacs.Module.Runtime
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Emacs.Module.Runtime
@@ -20,7 +21,7 @@ import Control.Monad.Base
 import Foreign
 import Foreign.C.Types
 
-import qualified Data.Emacs.Module.Env as Emacs
+import Data.Emacs.Module.Env qualified as Emacs
 import Data.Emacs.Module.Raw.Env.Internal (Env(..))
 import Data.Emacs.Module.NonNullPtr
 

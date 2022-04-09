@@ -2,16 +2,17 @@
 -- |
 -- Module      :  Emacs.Module.Functions
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- Wrappers around some Emacs functions, independent of concrete monad.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE QuasiQuotes      #-}
-{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RankNTypes          #-}
 
 module Emacs.Module.Functions
   ( bindFunction
@@ -62,20 +63,20 @@ module Emacs.Module.Functions
 import Control.Monad.Catch
 import Control.Monad.Except
 
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Char8 qualified as C8
 import Data.ByteString.Short (ShortByteString)
-import qualified Data.ByteString.Short as BSS
+import Data.ByteString.Short qualified as BSS
 import Data.Foldable
 import Data.Text (Text)
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Encoding.Error as TE
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as U
+import Data.Text.Encoding qualified as TE
+import Data.Text.Encoding.Error qualified as TE
+import Data.Vector qualified as V
+import Data.Vector.Unboxed qualified as U
 import Foreign.Ptr (nullPtr)
 import Foreign.StablePtr
 
 import Data.Emacs.Module.Args
-import qualified Data.Emacs.Module.Env as Env
+import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName (SymbolName)
 import Data.Emacs.Module.SymbolName.TH
 import Emacs.Module.Assert
@@ -387,7 +388,7 @@ unfoldEmacsListWith f accum = do
   accum' <- f accum
   nilVal <- nil
   case accum' of
-    Nothing         -> pure nilVal
+    Nothing           -> pure nilVal
     Just (x, accum'') -> do
       cell <- cons x nilVal
       go nilVal accum'' cell

@@ -2,19 +2,20 @@
 -- |
 -- Module      :  Emacs.Module.Errors
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 --
 -- This module defines various kinds of exception that this library
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE QuasiQuotes        #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Emacs.Module.Errors
   ( EmacsThrow(..)
@@ -36,22 +37,21 @@ module Emacs.Module.Errors
 import Control.Applicative
 import Control.Exception as Exception
 import Control.Exception.Safe.Checked (Throws)
-import qualified Control.Exception.Safe.Checked as Checked
+import Control.Exception.Safe.Checked qualified as Checked
 
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Char8 qualified as C8
 import Data.Proxy
 import Data.Text (Text)
-import qualified Data.Text.Encoding as TE
-import Data.Text.Prettyprint.Doc
-import qualified Data.Text.Prettyprint.Doc.Render.Text as PP
+import Data.Text.Encoding qualified as TE
 import Data.Void
 import Data.Void.Unsafe
 import Foreign.C.String
 import Foreign.Marshal.Array
 import GHC.Stack (CallStack, callStack, prettyCallStack)
-import Text.Show (showString)
+import Prettyprinter
+import Prettyprinter.Render.Text as PP
 
-import qualified Data.Emacs.Module.Env as Raw
+import Data.Emacs.Module.Env qualified as Raw
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.Raw.Value
@@ -224,7 +224,7 @@ withTextAsCString0AndLen :: Text -> (CString -> Int -> IO a) -> IO a
 withTextAsCString0AndLen str f =
   C8.useAsCString utf8 (\ptr -> f ptr (C8.length utf8))
   where
-    utf8 = (TE.encodeUtf8 str)
+    utf8 = TE.encodeUtf8 str
 
 returnNil :: Env -> IO RawValue
 returnNil env =

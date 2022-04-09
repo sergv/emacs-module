@@ -1,7 +1,9 @@
+cabal-version: 3.0
+
 name:
   emacs-module
 version:
-  0.1.1
+  0.1.1.1
 category: Foreign, Foreign binding
 
 synopsis:
@@ -17,21 +19,18 @@ description:
   to https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs
 
 license:
-  BSD3
+  Apache-2.0
 license-file:
   LICENSE
 author:
   Sergey Vinokurov
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
-stability: stable
 tested-with:
-    GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.4, GHC == 8.6.3
+    GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.2
 extra-source-files:
   cbits/emacs-module.h
 
-cabal-version:
-  2.0
 build-type:
   Simple
 
@@ -60,7 +59,33 @@ flag module-assertions
   manual:
     True
 
+common ghc-options
+  default-language:
+    Haskell2010
+
+  ghc-options:
+    -Weverything
+    -Wno-redundant-constraints
+    -Wno-type-defaults
+    -Wno-implicit-prelude
+    -Wno-missing-local-signatures
+    -Wno-missing-import-lists
+    -Wno-missed-specialisations
+    -Wno-all-missed-specialisations
+    -Wno-safe
+    -Wno-missing-safe-haskell-mode
+    -Wno-unsafe
+
+  if impl(ghc >= 8.8)
+    ghc-options:
+      -Wno-missing-deriving-strategies
+
+  if impl(ghc >= 9.2)
+    ghc-options:
+      -Wno-missing-kind-signatures
+
 library
+  import: ghc-options
   if flag(assertions)
     cpp-options: -DASSERTIONS
   if flag(module-assertions)
@@ -91,13 +116,13 @@ library
   hs-source-dirs:
     src
   build-depends:
-    base >=4.7 && < 5,
+    base >=4.14 && <5,
     bytestring,
     deepseq,
     exceptions,
     monad-control,
     mtl,
-    prettyprinter,
+    prettyprinter >=1.7,
     resourcet,
     safe-exceptions-checked,
     text,
@@ -105,8 +130,6 @@ library
     transformers-base,
     vector,
     void
-  if impl(ghc < 8.1)
-    build-depends: bifunctors
 
   includes:
     emacs-module.h
@@ -114,24 +137,5 @@ library
     emacs-module.h
   include-dirs:
     cbits
-  build-tools:
-    hsc2hs
-  default-language:
-    Haskell2010
-  ghc-options:
-    -Wall
-    -fwarn-name-shadowing
-    -fno-warn-type-defaults
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wcompat
-      -Whi-shadowing
-      -Widentities
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-exported-signatures
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -Wcpp-undef
-      -Wmissing-home-modules
-      -Wunbanged-strict-patterns
+  build-tool-depends:
+    hsc2hs:hsc2hs

@@ -2,15 +2,16 @@
 -- |
 -- Module      :  Data.Emacs.Module.SymbolName.TH
 -- Copyright   :  (c) Sergey Vinokurov 2018
--- License     :  BSD3-style (see LICENSE)
+-- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Data.Emacs.Module.SymbolName.TH (esym) where
 
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Char8 qualified as C8
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 

@@ -31,6 +31,9 @@ tested-with:
 extra-source-files:
   cbits/emacs-module.h
 
+extra-source-files:
+  Readme.org ChangeLog.md
+
 build-type:
   Simple
 

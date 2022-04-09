@@ -68,9 +68,10 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
         (,) <$> newName "env" <*> traverse (const (newName "x")) xs
   foreignFuncName <- newName $ "emacs_func_" ++ name
   -- fail $ "otherArgs = " ++ show otherArgs ++ ", rawFuncType = " ++ show rawFuncType'
-  let envPat = varP envArg
+  let envPat :: PatQ
+      envPat = varP envArg
       pats   = envPat : map varP otherArgs
-      body = normalB $ do
+      body   = normalB $ do
         funPtrVar <- newName "funPtr"
         [e|liftIO|] `appE` doE
           [ bindS (varP funPtrVar) $ peekExpr `appE` ([e| Env.toPtr |] `appE` varE envArg)
@@ -78,7 +79,8 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
           ]
   mainDecl     <- funD name' [clause pats body []]
   inlinePragma <- pragInlD name' Inline FunLike AllPhases
-  let foreignDeclType =
+  let foreignDeclType :: TypeQ
+      foreignDeclType =
         fmap (wrapForall forallCxt) $
         arrowT `appT` (conT ''Foreign.FunPtr `appT` pure rawFuncType'') `appT` pure rawFuncType''
   foreignDecl <- forImpD cCall safety "dynamic" foreignFuncName foreignDeclType

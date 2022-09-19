@@ -24,8 +24,7 @@
 -- With help of this package, it may be defined as
 --
 -- @
--- {-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE ImportQualifiedPost #-}
+-- {-# LANGUAGE DataKinds   #-}
 -- {-# LANGUAGE QuasiQuotes #-}
 --
 -- import Data.Maybe
@@ -58,6 +57,8 @@
 -- Haskell runtime. In the project mentioned before it's present as
 -- <https://github.com/sergv/emacs-module/blob/master/test/cbits/emacs_wrapper.c>
 ----------------------------------------------------------------------------
+
+{-# LANGUAGE ImportQualifiedPost #-}
 
 module Emacs.Module
   (

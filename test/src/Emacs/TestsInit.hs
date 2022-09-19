@@ -11,6 +11,7 @@
 {-# LANGUAGE ForeignFunctionInterface   #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -18,44 +19,26 @@
 
 module Emacs.TestsInit () where
 
-import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Char8 qualified as C8
 import Data.Maybe
 import Foreign
-#if MIN_VERSION_base(4,10,0)
 import Foreign.C
-#endif
-#if __GLASGOW_HASKELL__ < 804
-import Data.Semigroup
-#endif
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)
-import qualified Data.Emacs.Module.Runtime as Runtime
+import Data.Emacs.Module.Runtime qualified as Runtime
 import Data.Emacs.Module.SymbolName.TH
 import Emacs.Module
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
-#if MIN_VERSION_base(4,10,0)
 foreign export ccall initialise :: Ptr Runtime -> IO CBool
 
 true, false :: CBool
 true  = CBool 1
 false = CBool 0
 
-#else
-foreign export ccall initialise :: Ptr Runtime -> IO Int
-
-true, false :: Int
-true  = 1
-false = 0
-#endif
-
-#if MIN_VERSION_base(4,10,0)
 initialise :: WithCallStack => Ptr Runtime -> IO CBool
-#else
-initialise :: WithCallStack => Ptr Runtime -> IO Int
-#endif
 initialise runtime = do
   runtime' <- Runtime.validateRuntime runtime
   case runtime' of

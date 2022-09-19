@@ -101,7 +101,7 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- | Make value eligible for collection during next GC within Emacs.
   freeValue :: WithCallStack => EmacsRef m s -> m s ()
 
-  -- | Make Haskell function available as an anonymoucs Emacs
+  -- | Make Haskell function available as an anonymous Emacs
   -- function. In order to be able to use it later from Emacs it should
   -- be fed into 'bindFunction'.
   --

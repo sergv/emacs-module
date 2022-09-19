@@ -1,3 +1,4 @@
+cabal-version: 3.0
 name:
   emacs-module-test
 version:
@@ -5,23 +6,47 @@ version:
 synopsis:
   Tests for the emacs-module package.
 license:
-  BSD3
+  Apache-2.0
 author:
   Sergey Vinokurov
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 
-cabal-version:
-  >= 2.0
 build-type:
   Simple
 
+common ghc-options
+  default-language:
+    Haskell2010
+
+  ghc-options:
+    -Weverything
+    -Wno-all-missed-specialisations
+    -Wno-implicit-prelude
+    -Wno-missed-specialisations
+    -Wno-missing-import-lists
+    -Wno-missing-local-signatures
+    -Wno-missing-safe-haskell-mode
+    -Wno-safe
+    -Wno-type-defaults
+    -Wno-unsafe
+
+  if impl(ghc >= 8.8)
+    ghc-options:
+      -Wno-missing-deriving-strategies
+
+  if impl(ghc >= 9.2)
+    ghc-options:
+      -Wno-missing-kind-signatures
 
 foreign-library emacs-module-test
-  type:                native-shared
-  lib-version-info:    0:0:0
-  build-tools:
-    hsc2hs
+  import: ghc-options
+  type:
+    native-shared
+  lib-version-info:
+    0:0:0
+  build-tool-depends:
+    hsc2hs:hsc2hs
   c-sources:
     cbits/emacs_wrapper.c
   includes:
@@ -38,31 +63,9 @@ foreign-library emacs-module-test
   --   mod-def-file: MyForeignLib.def
 
   build-depends:
-    base >=4.7,
-    bytestring,
-    emacs-module,
-    safe-exceptions-checked
+    , base >=4.14 && <5
+    , bytestring
+    , emacs-module
+    , safe-exceptions-checked
   hs-source-dirs:
     src
-  default-language:
-    Haskell2010
-  ghc-options:
-    -threaded
-    -Wall
-    -fwarn-name-shadowing
-    -fno-warn-type-defaults
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wcompat
-      -Whi-shadowing
-      -Widentities
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-exported-signatures
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -Wcpp-undef
-      -Wmissing-home-modules
-      -Wunbanged-strict-patterns
-  ghc-prof-options:
-    -fprof-auto

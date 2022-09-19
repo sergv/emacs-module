@@ -27,7 +27,7 @@ author:
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 tested-with:
-    GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.2
+    GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.4, GHC == 9.4.2
 extra-source-files:
   cbits/emacs-module.h
 
@@ -120,20 +120,20 @@ library
   hs-source-dirs:
     src
   build-depends:
-    base >=4.14 && <5,
-    bytestring,
-    deepseq,
-    exceptions,
-    monad-control,
-    mtl,
-    prettyprinter >=1.7,
-    resourcet,
-    safe-exceptions-checked,
-    text,
-    template-haskell,
-    transformers-base,
-    vector,
-    void
+    , base >=4.14 && <5
+    , bytestring
+    , deepseq
+    , exceptions
+    , monad-control
+    , mtl
+    , prettyprinter >=1.7
+    , resourcet
+    , safe-exceptions-checked
+    , text
+    , template-haskell
+    , transformers-base
+    , vector
+    , void
 
   includes:
     emacs-module.h

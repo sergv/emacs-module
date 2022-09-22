@@ -40,9 +40,8 @@ build-type:
 homepage: https://github.com/sergv/emacs-module
 
 source-repository head
-    type: git
-    location: https://github.com/sergv/emacs-module.git
-
+  type: git
+  location: https://github.com/sergv/emacs-module.git
 
 flag assertions
   description:

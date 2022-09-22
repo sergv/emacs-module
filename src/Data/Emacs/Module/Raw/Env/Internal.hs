@@ -34,7 +34,6 @@ newtype Env = Env { unEnv :: NonNullPtr Env }
 toPtr :: Env -> Ptr Env
 toPtr = unNonNullPtr . unEnv
 
-
 type RawFunctionType a =
      Env
   -> CPtrdiff     -- Number of arguments

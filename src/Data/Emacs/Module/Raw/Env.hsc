@@ -15,8 +15,6 @@
 
 {-# OPTIONS_HADDOCK not-home #-}
 
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
-
 module Data.Emacs.Module.Raw.Env
   ( EnumFuncallExit(..)
   , UserPtrFinaliserType

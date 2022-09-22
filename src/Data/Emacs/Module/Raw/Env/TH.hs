@@ -13,6 +13,7 @@
 module Data.Emacs.Module.Raw.Env.TH (wrapEmacsFunc, Safety(..)) where
 
 import Control.Monad.IO.Class
+import Data.Bifunctor
 import Data.List (foldl')
 import Foreign.Ptr as Foreign
 import Language.Haskell.TH
@@ -44,20 +45,11 @@ wrapForall :: Maybe ([TyVarBndr], Cxt) -> Type -> Type
 wrapForall Nothing        = id
 wrapForall (Just (bs, c)) = ForallT bs c
 
---   AppT (AppT ArrowT x) ret -> go [] ret x
---   invalid                  -> fail $ "Invalid function type: " ++ show invalid
---   where
---     go :: [Type] -> Type -> Type -> Q ([Type], Type)
---     go args ret = \case
---       AppT ArrowT firstArg -> pure (firstArg : args, ret)
---       AppT x      y        -> go (y : args) ret x
---       invalid              -> fail $ "Invalid function type: " ++ show invalid
-
 wrapEmacsFunc :: String -> Safety -> ExpQ -> TypeQ -> DecsQ
 wrapEmacsFunc name safety peekExpr rawFuncType = do
   rawFuncType' <- rawFuncType
   let (forallCxt, rawFuncType'') = unwrapForall rawFuncType'
-      (args, _ret)               = decomposeFunctionType rawFuncType''
+      (args, ret)                = decomposeFunctionType rawFuncType''
   (envArg, otherArgs) <- case args of
     [] -> fail $
       "Raw function type must take at least one emacs_env argument: " ++ show rawFuncType'
@@ -67,7 +59,6 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
      | otherwise ->
         (,) <$> newName "env" <*> traverse (const (newName "x")) xs
   foreignFuncName <- newName $ "emacs_func_" ++ name
-  -- fail $ "otherArgs = " ++ show otherArgs ++ ", rawFuncType = " ++ show rawFuncType'
   let envPat :: PatQ
       envPat = varP envArg
       pats   = envPat : map varP otherArgs
@@ -77,6 +68,17 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
           [ bindS (varP funPtrVar) $ peekExpr `appE` ([e| Env.toPtr |] `appE` varE envArg)
           , noBindS $ foldl' appE (varE foreignFuncName) (map varE $ funPtrVar : envArg : otherArgs)
           ]
+  m    <- newName "m"
+  ret' <- case ret of
+    AppT monad result
+      | monad == ConT ''IO
+      -> appT (varT m) (pure result)
+    _ -> fail $ "Expected function that returns result in IO monad"
+  let tv         = PlainTV m SpecifiedSpec
+      constraint = ConT ''MonadIO `AppT` (VarT m)
+  typeSig      <- sigD name' $ pure $
+    wrapForall (Just (maybe ([tv], [constraint]) (bimap (tv :) (constraint :)) forallCxt)) $
+      foldr (\x acc -> ArrowT `AppT` x `AppT` acc) ret' args
   mainDecl     <- funD name' [clause pats body []]
   inlinePragma <- pragInlD name' Inline FunLike AllPhases
   let foreignDeclType :: TypeQ
@@ -84,7 +86,7 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
         fmap (wrapForall forallCxt) $
         arrowT `appT` (conT ''Foreign.FunPtr `appT` pure rawFuncType'') `appT` pure rawFuncType''
   foreignDecl <- forImpD cCall safety "dynamic" foreignFuncName foreignDeclType
-  pure [mainDecl, inlinePragma, foreignDecl]
+  pure [typeSig, mainDecl, inlinePragma, foreignDecl]
   where
     name' = mkName name
 

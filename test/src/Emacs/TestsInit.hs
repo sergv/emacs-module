@@ -115,14 +115,14 @@ appendLotsOfVectors (R n Stop) = do
   produceRef $ fromMaybe empty' res'
 
 emacsReplicate
-  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m, Monad (m s))
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 emacsReplicate (R n (R x Stop)) = do
   n' <- extractInt n
   produceRef =<< makeList (replicate n' x)
 
 concat2'
-  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
   => (m s (EmacsRef m s), C8.ByteString)
   -> (m s (EmacsRef m s), C8.ByteString)
   -> (m s (EmacsRef m s), C8.ByteString)
@@ -138,7 +138,7 @@ concat2' (x, xStr) (y, yStr) =
           concat2 x'' y''
 
 vconcat2'
-  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
   => (m s (EmacsRef m s), [Int])
   -> (m s (EmacsRef m s), [Int])
   -> (m s (EmacsRef m s), [Int])
@@ -153,7 +153,7 @@ vconcat2' (x, xs) (y, ys) =
           _ <- funcallPrimitive [esym|garbage-collect|] []
           vconcat2 x'' y''
 
-appendTree :: WithCallStack => (a -> a -> a) -> [a] -> Maybe a
+appendTree :: (a -> a -> a) -> [a] -> Maybe a
 appendTree f = reduce
   where
     go []             = []

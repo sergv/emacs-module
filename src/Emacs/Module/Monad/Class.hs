@@ -27,11 +27,12 @@ import Data.ByteString.Char8 qualified as C8
 import Data.Int
 import Data.Kind
 import Foreign.Ptr (Ptr)
+import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.SymbolName (SymbolName)
+import Data.Emacs.Module.SymbolName (SymbolName, UseSymbolName)
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 
@@ -120,31 +121,31 @@ class MonadEmacs (m :: k -> Type -> Type) where
 
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
-    :: WithCallStack
-    => SymbolName      -- ^ Function name
+    :: (WithCallStack, Pretty a, UseSymbolName a)
+    => SymbolName a    -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function. The function should be simple and
   -- must not call back into Haskell.
   funcallPrimitive
-    :: WithCallStack
-    => SymbolName      -- ^ Function name
+    :: (WithCallStack, Pretty a, UseSymbolName a)
+    => SymbolName a    -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function and ignore its result. The function
   -- should be simple and must not call back into Haskell.
   funcallPrimitive_
-    :: WithCallStack
-    => SymbolName     -- ^ Function name
+    :: (WithCallStack, Pretty a, UseSymbolName a)
+    => SymbolName a   -- ^ Function name
     -> [EmacsRef m s] -- ^ Arguments
     -> m s ()
 
   -- | Convert a string to an Emacs symbol.
   intern
-    :: WithCallStack
-    => SymbolName
+    :: (WithCallStack, Pretty a, UseSymbolName a)
+    => SymbolName a
     -> m s (EmacsRef m s)
 
   -- | Get type of an Emacs value as an Emacs symbol.

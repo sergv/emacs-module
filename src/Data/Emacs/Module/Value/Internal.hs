@@ -7,6 +7,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE PolyKinds     #-}
 
 module Data.Emacs.Module.Value.Internal (Value(..)) where
 
@@ -27,7 +28,7 @@ import Data.Emacs.Module.Raw.Value (GlobalRef(..))
 -- @s@, which serves the same purpose as tag of the 'ST' monad. That
 -- is, it ensures that value cannot leave the scope of the monad that
 -- produced it.
-data Value s = Value
+data Value (s :: k) = Value
   { valuePayload       :: {-# UNPACK #-} !GlobalRef
   , valueReleaseHandle :: {-# UNPACK #-} !ReleaseKey
   } deriving (Generic)

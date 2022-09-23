@@ -16,10 +16,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
@@ -32,18 +33,18 @@ module Emacs.Module.Monad
   ) where
 
 import Control.Exception qualified as Exception
-import Control.Monad.Catch qualified as Catch
 import Control.Exception.Safe.Checked (Throws)
 import Control.Exception.Safe.Checked qualified as Checked
 import Control.Monad.Base
+import Control.Monad.Catch qualified as Catch
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Resource as Resource
-
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as C8
 import Data.Coerce
+import Data.Kind
 import Data.Proxy
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -53,7 +54,8 @@ import Data.Void
 import Foreign (Storable(..))
 import Foreign.C.Types
 import Foreign.Marshal.Array
-import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Ptr (nullPtr)
+import GHC.Exts
 import Prettyprinter
 
 import Data.Emacs.Module.Args
@@ -62,8 +64,7 @@ import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType, exportToEmacs)
 import Data.Emacs.Module.Raw.Value (RawValue, GlobalRef(..))
-import Data.Emacs.Module.SymbolName (SymbolName, useSymbolNameAsCString)
-import Data.Emacs.Module.SymbolName.TH
+import Data.Emacs.Module.SymbolName
 import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
 import Emacs.Module.Errors
@@ -87,7 +88,7 @@ data Environment = Environment
 -- Parameter 's' serves to make ownership-tracking capabilities possible.
 -- It's use is the same as in 'Control.Monad.ST' monad. That is, it creates
 -- local threads so that no produced Emacs values can leave past 'runEmacsM'.
-newtype EmacsM s a = EmacsM { unEmacsM :: ReaderT Environment IO a }
+newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment IO a }
   deriving
     ( Functor
     , Applicative
@@ -197,8 +198,8 @@ checkExitAndRethrowInHaskell errMsg = do
     FuncallExitReturn            -> pure ()
     FuncallExitSignal (sym, dat) -> do
       nonLocalExitClear'
-      dat'      <- funcallPrimitiveUnchecked [esym|cons|] [sym, dat]
-      formatted <- funcallPrimitiveUnchecked [esym|prin1-to-string|] [dat']
+      dat'      <- funcallPrimitiveUnchecked (mkSymbolNameUnsafe# "cons"#) [sym, dat]
+      formatted <- funcallPrimitiveUnchecked (mkSymbolNameUnsafe# "prin1-to-string"#) [dat']
       formatRes <- nonLocalExitCheck'
       case formatRes of
         FuncallExitSignal{} -> do
@@ -234,23 +235,23 @@ checkExitAndRethrowInHaskell' errMsg action =
   action <* checkExitAndRethrowInHaskell errMsg
 
 {-# INLINE internUnchecked #-}
-internUnchecked :: SymbolName -> EmacsM s RawValue
+internUnchecked :: UseSymbolName a => SymbolName a -> EmacsM s RawValue
 internUnchecked sym =
-  liftIO' $ \env -> useSymbolNameAsCString sym $ Raw.intern env
+  liftIO' $ \env -> withSymbolNameAsCString sym $ Raw.intern env
 
 {-# INLINE funcallUnchecked #-}
-funcallUnchecked :: SymbolName -> [RawValue] -> EmacsM s RawValue
+funcallUnchecked :: UseSymbolName a => SymbolName a -> [RawValue] -> EmacsM s RawValue
 funcallUnchecked name args = do
   liftIO' $ \env -> do
-    fun <- useSymbolNameAsCString name $ Raw.intern env
+    fun <- withSymbolNameAsCString name $ Raw.intern env
     withArrayLen args $ \n args' ->
       Raw.funcall env fun (fromIntegral n) (mkNonNullPtr args')
 
 {-# INLINE funcallPrimitiveUnchecked #-}
-funcallPrimitiveUnchecked :: SymbolName -> [RawValue] -> EmacsM s RawValue
+funcallPrimitiveUnchecked :: UseSymbolName a => SymbolName a -> [RawValue] -> EmacsM s RawValue
 funcallPrimitiveUnchecked name args =
   liftIO' $ \env -> do
-    fun <- useSymbolNameAsCString name $ Raw.intern env
+    fun <- withSymbolNameAsCString name $ Raw.intern env
     withArrayLen args $ \n args' ->
       Raw.funcallPrimitive env fun (fromIntegral n) (mkNonNullPtr args')
 
@@ -306,7 +307,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
     for z $ \(x, y) -> (,) <$> makeValue x <*> makeValue y
 
   nonLocalExitSignal sym errData = do
-    errData' <- funcallPrimitiveUnchecked [esym|list|] (map getRawValue errData)
+    errData' <- funcallPrimitiveUnchecked (mkSymbolNameUnsafe# "list"#) (map getRawValue errData)
     liftIO' $ \env -> Raw.nonLocalExitSignal env (getRawValue sym) errData'
 
   {-# INLINE nonLocalExitThrow #-}

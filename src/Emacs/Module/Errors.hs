@@ -11,9 +11,9 @@
 {-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE TypeApplications    #-}
 
@@ -55,8 +55,7 @@ import Data.Emacs.Module.Env qualified as Raw
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.Raw.Value
-import Data.Emacs.Module.SymbolName (useSymbolNameAsCString)
-import Data.Emacs.Module.SymbolName.TH
+import Data.Emacs.Module.SymbolName
 import Emacs.Module.Assert
 -- import qualified Data.Emacs.Module.Value.Internal as Emacs
 
@@ -65,8 +64,8 @@ import Emacs.Module.Assert
 --
 -- Unlikely to be needed when developing Emacs extensions.
 data EmacsThrow = EmacsThrow
-  { emacsThrowTag    :: !RawValue
-  , emacsThrowValue  :: !RawValue
+  { emacsThrowTag   :: !RawValue
+  , emacsThrowValue :: !RawValue
   }
 
 instance Show EmacsThrow where
@@ -209,8 +208,8 @@ reportAllErrorsToEmacs env resultOnErr x =
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
-  errSym  <- useSymbolNameAsCString [esym|error|] (Raw.intern env)
-  listSym <- useSymbolNameAsCString [esym|list|]  (Raw.intern env)
+  errSym  <- withSymbolNameAsCString (mkSymbolNameUnsafe# "error"#) (Raw.intern env)
+  listSym <- withSymbolNameAsCString (mkSymbolNameUnsafe# "list"#)  (Raw.intern env)
   withTextAsCString0AndLen (format err) $ \str len -> do
     str' <- Raw.makeString env str (fromIntegral len)
     withArrayLen [str'] $ \nargs argsPtr -> do
@@ -228,8 +227,7 @@ withTextAsCString0AndLen str f =
 
 returnNil :: Env -> IO RawValue
 returnNil env =
-  useSymbolNameAsCString [esym|nil|] (Raw.intern env)
-
+  withSymbolNameAsCString (mkSymbolNameUnsafe# "nil"#) (Raw.intern env)
 
 render :: Pretty a => a -> Text
 render = render' . pretty

@@ -56,6 +56,7 @@ module Data.Emacs.Module.Raw.Env
   , vecGet
   , vecSet
   , vecSize
+  , setFunctionFinalizer
   ) where
 
 import Control.Monad.IO.Class
@@ -96,7 +97,7 @@ isValidEnv env = liftIO $ do
   pure $ expectedSize <= realSize
   where
     expectedSize :: CPtrdiff
-    expectedSize = (#size emacs_env)
+    expectedSize = (#size struct emacs_env_28)
 
 $(wrapEmacsFunc "makeGlobalRefTH" Unsafe
    [e| (#peek emacs_env, make_global_ref) |]
@@ -515,4 +516,17 @@ vecSize
   -> RawValue
   -> m CPtrdiff
 vecSize = vecSizeTH
+
+$(wrapEmacsFunc "setFunctionFinalizerTH" Unsafe
+   [e| (#peek emacs_env, set_function_finalizer) |]
+   [t| forall a. Env -> RawValue -> FunPtr (FunPtrReleaserType a) -> IO () |])
+
+{-# INLINE setFunctionFinalizer #-}
+setFunctionFinalizer
+  :: MonadIO m
+  => Env
+  -> RawValue
+  -> FunPtr (FunPtrReleaserType a)
+  -> m ()
+setFunctionFinalizer = setFunctionFinalizerTH
 

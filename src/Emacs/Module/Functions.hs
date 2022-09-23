@@ -17,7 +17,6 @@
 
 module Emacs.Module.Functions
   ( bindFunction
-  , makeFunction
   , withCleanup
   , provide
   , makeUserPtrFromStablePtr
@@ -63,7 +62,6 @@ module Emacs.Module.Functions
 
 import Control.Monad.Catch
 import Control.Monad.Except
-import Data.ByteString.Char8 qualified as C8
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as BSS
 import Data.Foldable
@@ -72,16 +70,14 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
 import Data.Vector qualified as V
 import Data.Vector.Unboxed qualified as U
-import Foreign.Ptr (nullPtr)
 import Foreign.StablePtr
 import Prettyprinter
 
-import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
-
 
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
@@ -93,20 +89,6 @@ bindFunction
 bindFunction name def = do
   name' <- intern name
   funcallPrimitive_ (mkSymbolNameUnsafe# "fset"#) [name', def]
-
-{-# INLINE makeFunction #-}
--- | Make Haskell function available as an anonymoucs Emacs
--- function. In order to be able to use it later from Emacs it should
--- be fed into 'bindFunction'.
---
--- This is a simplified version of 'makeFunctionExtra'.
-makeFunction
-  :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest, MonadEmacs m, Monad (m s))
-  => (forall s'. EmacsFunction req opt rest s' m)
-  -> C8.ByteString
-  -> m s (EmacsRef m s)
-makeFunction f doc =
-  makeFunctionExtra (\env _extraPtr -> f env) doc nullPtr
 
 {-# INLINE provide #-}
 -- | Signal to Emacs that certain feature is being provided. Returns provided

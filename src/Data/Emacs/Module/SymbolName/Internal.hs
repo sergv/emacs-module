@@ -7,6 +7,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -14,6 +15,7 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE UnliftedNewtypes           #-}
@@ -27,6 +29,7 @@ module Data.Emacs.Module.SymbolName.Internal
   , SymbolName(..)
   , SomeSymbolName(..)
   , EmacsSymbolName
+  , cacheSymbolName
   , mkSymbolName
   , mkSymbolNameUnsafe#
   , mkSymbolNameShortByteString
@@ -35,26 +38,32 @@ module Data.Emacs.Module.SymbolName.Internal
 import Data.ByteString.Char8 qualified as C8
 import Data.ByteString.Internal qualified as BS
 import Data.ByteString.Short qualified as BSS
+import Data.IORef
 import Data.Kind
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
-import Foreign.C.String
 import Foreign.C.Types
 import GHC.Exts (Addr#, byteArrayContents#)
 import GHC.Ptr
 import Prettyprinter
+import System.IO.Unsafe
+
+import Data.Emacs.Module.Raw.Env qualified as Raw
+import Data.Emacs.Module.Raw.Env.Internal
+import Data.Emacs.Module.Raw.Value
 
 -- | Symbols that are known at compile time.
 --
 -- Will just pass pointer to 0-terminated statically-allocated string
 -- to Emacs API when used.
-newtype Static = Static (Ptr CChar)
+newtype Static = Static { unStatic :: Ptr CChar }
+  deriving (Eq, Ord, Show)
 
 newtype Dynamic = Dynamic { unDynamic :: BSS.ShortByteString }
   deriving (Eq, Ord, Show)
 
 newtype SymbolName a = SymbolName a
-  deriving (Eq, Ord, Show, Pretty)
+  deriving (Eq, Ord, Show, Pretty, Functor, Foldable, Traversable)
 
 instance Pretty Static where
   pretty (Static (Ptr addr))
@@ -69,17 +78,39 @@ instance Pretty Dynamic where
     $ C8.init
     $ BSS.fromShort str
 
+newtype Cached = Cached { _unCached :: IORef (Env -> IO GlobalRef) }
+  deriving (Eq)
+
+cacheSymbolName :: forall a. UseSymbolName a => SymbolName a -> SymbolName Cached
+cacheSymbolName = unsafePerformIO . go
+  where
+    go :: SymbolName a -> IO (SymbolName Cached)
+    go name = do
+      res <- unsafeFixIO $ \ref ->
+        newIORef $ \env -> do
+          glob <- Raw.makeGlobalRef env =<< reifySymbol env name
+          writeIORef ref $ \_env -> pure glob
+          pure glob
+      pure $ SymbolName $ Cached res
+
 class UseSymbolName a where
-  withSymbolNameAsCString :: SymbolName a -> (CString -> IO b) -> IO b
+  reifySymbol :: Env -> SymbolName a -> IO RawValue
 
 instance UseSymbolName Static where
-  {-# INLINE withSymbolNameAsCString #-}
-  withSymbolNameAsCString (SymbolName (Static addr)) f = f addr
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Static addr)) =
+    Raw.intern env addr
 
 instance UseSymbolName Dynamic where
   -- I like to live dangerously...
-  {-# INLINE withSymbolNameAsCString #-}
-  withSymbolNameAsCString (SymbolName (Dynamic (BSS.SBS arr))) f = f (Ptr (byteArrayContents# arr))
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Dynamic (BSS.SBS arr))) =
+    Raw.intern env (Ptr (byteArrayContents# arr))
+
+instance UseSymbolName Cached where
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Cached ref)) = do
+    unGlobalRef <$> (($ env) =<< readIORef ref)
 
 {-# INLINE mkSymbolName #-}
 mkSymbolName :: C8.ByteString -> SymbolName Dynamic

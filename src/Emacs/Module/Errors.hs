@@ -208,8 +208,8 @@ reportAllErrorsToEmacs env resultOnErr x =
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
-  errSym  <- withSymbolNameAsCString (mkSymbolNameUnsafe# "error"#) (Raw.intern env)
-  listSym <- withSymbolNameAsCString (mkSymbolNameUnsafe# "list"#)  (Raw.intern env)
+  errSym  <- reifySymbol env (mkSymbolNameUnsafe# "error"#)
+  listSym <- reifySymbol env (mkSymbolNameUnsafe# "list"#)
   withTextAsCString0AndLen (format err) $ \str len -> do
     str' <- Raw.makeString env str (fromIntegral len)
     withArrayLen [str'] $ \nargs argsPtr -> do
@@ -227,7 +227,7 @@ withTextAsCString0AndLen str f =
 
 returnNil :: Env -> IO RawValue
 returnNil env =
-  withSymbolNameAsCString (mkSymbolNameUnsafe# "nil"#) (Raw.intern env)
+  reifySymbol env (mkSymbolNameUnsafe# "nil"#)
 
 render :: Pretty a => a -> Text
 render = render' . pretty

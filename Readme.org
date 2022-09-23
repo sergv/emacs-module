@@ -58,4 +58,4 @@ library/dll that can be loaded by standard emacs with ~(load "/tmp/libmy-ext.so"
 
 ** Supported GHC versions
 
-Tested with GHC ~8.0.2~, ~8.2.2~, ~8.4.4~, ~8.6.3~.
+Tested with GHC ~8.10~, ~9.0~, ~9.2~, ~9.4~.

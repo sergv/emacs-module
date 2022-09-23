@@ -71,7 +71,6 @@ module Emacs.Module
 
     -- ** Define functions callable by Emacs
   , EmacsFunction
-  , EmacsFunctionExtra
   , Nat(..)
   , R(..)
   , O(..)

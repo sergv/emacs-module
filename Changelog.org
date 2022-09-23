@@ -1,0 +1,19 @@
+* 0.2
+
+- Bump minimum required Emacs version to 28
+- Bump minimum required ~base~ version to 4.14 - minimum supported GHC is 8.10
+
+- Symbols can be either statically known or dynamically known. This is mostly an optimization that doesn’t affect symbol use but client code may require updating. Statically known symbol are just pointers to statically allocated (by GHC) bytes and the pointers are simply passed to Emacs when to create symbols.
+
+- ~makeFunction~ now cleans up after itself and no longer has memory leak if called a lot of times (which shouldn’t have typically happened anyway but still nice to have just in case)
+
+- When called by emacs the package periodically invokes ~process_input~ and raises asynchronous exception if user requested to stop operation. This makes emacs functions defined via this package interruptible.
+
+- ~makeFunctionExtra~ and ~EmacsFunctionExtra~ are gone. They offered to pass extra pointer into subroutine exposed to Emacs but it was never needed since arbitrary closure can be exposed. Now extra pointer is used to clean up result of ~makeFunction~.
+
+* 0.1.1.1
+
+- Fix build with GHC 9.0+
+- Switch license from BSD 3 to Apache 2.0
+- Bump minimum required GHC to 8.10
+- Bump minimum ~prettyprinter~ to 1.7

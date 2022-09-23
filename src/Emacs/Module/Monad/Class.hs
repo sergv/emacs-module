@@ -16,7 +16,6 @@
 
 module Emacs.Module.Monad.Class
   ( EmacsFunction
-  , EmacsFunctionExtra
   , MonadEmacs(..)
   ) where
 
@@ -40,16 +39,6 @@ import Emacs.Module.Errors
 type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
   = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
   => EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
-
--- | A Haskell functions that is callable by Emacs.
---
--- This type differs from 'EmacsFunction' in that it has an extra
--- parameter which will result in an additional pointer being passed
--- to this function when it's called by Emacs. Contents of the pointer is
--- specified when function is exported to Emacs.
-type EmacsFunctionExtra req opt rest extra (s :: k) (m :: k -> Type -> Type)
-  = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => EmacsArgs req opt rest (EmacsRef m s) -> Ptr extra -> m s (EmacsReturn m s)
 
 -- | A mtl-style typeclass for interacting with Emacs. Typeclass functions
 -- are mostly direct translations of emacs interface provided by 'emacs-module.h'.
@@ -105,18 +94,10 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- | Make Haskell function available as an anonymous Emacs
   -- function. In order to be able to use it later from Emacs it should
   -- be fed into 'bindFunction'.
-  --
-  -- NB Each call to this function produces a small memory leak that
-  -- will not be freed up. Hence, try not to create unbounded number
-  -- of functions. This happens because GHC has to generate some wrapping
-  -- code to convert between ccall and Haskell calling convention each time
-  -- a function is exported. It is possible to free this code after function
-  -- will not be used, but it's currently not supported.
-  makeFunctionExtra
+  makeFunction
     :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'. EmacsFunctionExtra req opt rest extra s' m) -- ^ Haskell function to export
-    -> C8.ByteString                                           -- ^ Documentation
-    -> Ptr extra                                               -- ^ Extra data to be passed to the Haskell function
+    => (forall s'. EmacsFunction req opt rest s' m) -- ^ Haskell function to export
+    -> C8.ByteString                                -- ^ Documentation
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function that may call back into Haskell.

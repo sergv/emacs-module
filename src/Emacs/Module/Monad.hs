@@ -54,15 +54,15 @@ import Data.Void
 import Foreign (Storable(..))
 import Foreign.C.Types
 import Foreign.Marshal.Array
+import Foreign.Ptr (castFunPtrToPtr)
 import Foreign.Ptr (nullPtr)
-import GHC.Exts
 import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Raw
-import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType, exportToEmacs)
+import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value (RawValue, GlobalRef(..))
 import Data.Emacs.Module.SymbolName
 import Data.Emacs.Module.Value.Internal
@@ -237,13 +237,13 @@ checkExitAndRethrowInHaskell' errMsg action =
 {-# INLINE internUnchecked #-}
 internUnchecked :: UseSymbolName a => SymbolName a -> EmacsM s RawValue
 internUnchecked sym =
-  liftIO' $ \env -> withSymbolNameAsCString sym $ Raw.intern env
+  liftIO' $ \env -> reifySymbol env sym
 
 {-# INLINE funcallUnchecked #-}
 funcallUnchecked :: UseSymbolName a => SymbolName a -> [RawValue] -> EmacsM s RawValue
 funcallUnchecked name args = do
   liftIO' $ \env -> do
-    fun <- withSymbolNameAsCString name $ Raw.intern env
+    fun <- reifySymbol env name
     withArrayLen args $ \n args' ->
       Raw.funcall env fun (fromIntegral n) (mkNonNullPtr args')
 
@@ -251,7 +251,7 @@ funcallUnchecked name args = do
 funcallPrimitiveUnchecked :: UseSymbolName a => SymbolName a -> [RawValue] -> EmacsM s RawValue
 funcallPrimitiveUnchecked name args =
   liftIO' $ \env -> do
-    fun <- withSymbolNameAsCString name $ Raw.intern env
+    fun <- reifySymbol env name
     withArrayLen args $ \n args' ->
       Raw.funcallPrimitive env fun (fromIntegral n) (mkNonNullPtr args')
 
@@ -338,30 +338,31 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   freeValue :: WithCallStack => Value s -> EmacsM s ()
   freeValue = Resource.release . valueReleaseHandle
 
-  {-# INLINE makeFunctionExtra #-}
-  makeFunctionExtra
-    :: forall req opt rest extra s. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'. EmacsFunctionExtra req opt rest extra s' EmacsM)
+  {-# INLINE makeFunction #-}
+  makeFunction
+    :: forall req opt rest s. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
+    => (forall s'. EmacsFunction req opt rest s' EmacsM)
     -> C8.ByteString
-    -> Ptr extra
     -> EmacsM s (Value s)
-  makeFunctionExtra emacsFun docs extraPtr =
+  makeFunction emacsFun docs =
     makeValue =<<
-    checkExitAndRethrowInHaskell' "makeFunctionExtra failed"
+    checkExitAndRethrowInHaskell' "makeFunction failed"
       (liftIO' $ \env ->
         C8.useAsCString docs $ \docs' -> do
-          implementation' <- exportToEmacs implementation
-          Raw.makeFunction env minArity maxArity implementation' docs' extraPtr)
+          (implementationPtr :: RawFunction ()) <- exportToEmacs implementation
+          func <- Raw.makeFunction env minArity maxArity implementationPtr docs' (castFunPtrToPtr (unRawFunction implementationPtr))
+          Raw.setFunctionFinalizer env func freeHaskellFunPtrWrapped
+          pure func)
     where
       (minArity, maxArity) = arities (Proxy @req) (Proxy @opt) (Proxy @rest)
 
-      implementation :: RawFunctionType extra
-      implementation env nargs argsPtr extraPtr' =
+      implementation :: RawFunctionType ()
+      implementation env nargs argsPtr _extraPtr =
         Checked.uncheck (Proxy @UserError) $
           Exception.handle (reportAnyErrorToEmacs env) $
             Checked.handle (reportEmacsThrowToEmacs env) $ do
               res <- runEmacsM env $ do
-                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeValue (\args -> emacsFun args extraPtr')
+                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeValue emacsFun
                 pure $! valuePayload v
 #ifndef MODULE_ASSERTIONS
               Raw.freeGlobalRef env res

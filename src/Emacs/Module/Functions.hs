@@ -32,8 +32,6 @@ module Emacs.Module.Functions
   , makeBool
     -- * Vectors
   , extractVector
-  , extractVectorWith
-  , extractUnboxedVectorWith
   , makeVector
   , vconcat2
     -- * Lists
@@ -61,28 +59,25 @@ module Emacs.Module.Functions
   ) where
 
 import Control.Monad.Catch
-import Control.Monad.Except
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as BSS
 import Data.Foldable
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
-import Data.Vector qualified as V
 import Data.Vector.Unboxed qualified as U
 import Foreign.StablePtr
 import Prettyprinter
 
 import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName
-import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
 
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
 bindFunction
-  :: (WithCallStack, MonadEmacs m, Monad (m s), Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
   => SymbolName a -- ^ Name
   -> EmacsRef m s -- ^ Function value
   -> m s ()
@@ -94,7 +89,7 @@ bindFunction name def = do
 -- | Signal to Emacs that certain feature is being provided. Returns provided
 -- symbol.
 provide
-  :: (WithCallStack, MonadEmacs m, Monad (m s), Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
   => SymbolName a -- ^ Feature to provide
   -> m s ()
 provide sym = do
@@ -104,7 +99,7 @@ provide sym = do
 {-# INLINE makeUserPtrFromStablePtr #-}
 -- | Pack a stable pointer as Emacs @user_ptr@.
 makeUserPtrFromStablePtr
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => StablePtr a
   -> m s (EmacsRef m s)
 makeUserPtrFromStablePtr =
@@ -112,7 +107,7 @@ makeUserPtrFromStablePtr =
 
 {-# INLINE extractStablePtrFromUserPtr #-}
 extractStablePtrFromUserPtr
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (StablePtr a)
 extractStablePtrFromUserPtr =
@@ -124,7 +119,7 @@ extractStablePtrFromUserPtr =
 -- This function will fail if Emacs value is not an integer or
 -- contains value too big to fit into 'Int' on current architecture.
 extractInt
-  :: (WithCallStack, MonadEmacs m, Monad (m s)) => EmacsRef m s -> m s Int
+  :: (WithCallStack, MonadEmacs m) => EmacsRef m s -> m s Int
 extractInt x = do
   y <- extractWideInteger x
   emacsAssert
@@ -135,20 +130,20 @@ extractInt x = do
 {-# INLINE makeInt #-}
 -- | Pack an 'Int' integer for Emacs.
 makeInt
-  :: (WithCallStack, MonadEmacs m, Monad (m s)) => Int -> m s (EmacsRef m s)
+  :: (WithCallStack, MonadEmacs m) => Int -> m s (EmacsRef m s)
 makeInt = makeWideInteger . fromIntegral
 
 {-# INLINE extractText #-}
 -- | Extract string contents as 'Text' from an Emacs value.
 extractText
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -> m s Text
 extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
 
 {-# INLINE makeText #-}
 -- | Convert a Text into an Emacs string value.
 makeText
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => Text -> m s (EmacsRef m s)
 makeText = makeString . TE.encodeUtf8
 
@@ -156,7 +151,7 @@ makeText = makeString . TE.encodeUtf8
 {-# INLINE extractShortByteString #-}
 -- | Extract string contents as 'ShortByteString' from an Emacs value.
 extractShortByteString
-  :: (WithCallStack, MonadEmacs m, Functor (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -> m s ShortByteString
 extractShortByteString = fmap BSS.toShort . extractString
 
@@ -171,63 +166,39 @@ makeShortByteString = makeString . BSS.fromShort
 {-# INLINE extractBool #-}
 -- | Extract a boolean from an Emacs value.
 extractBool
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -> m s Bool
 extractBool = isNotNil
 
 {-# INLINE makeBool #-}
 -- | Convert a Bool into an Emacs string value.
 makeBool
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => Bool -> m s (EmacsRef m s)
 makeBool b = intern (if b then mkSymbolNameUnsafe# "t"# else mkSymbolNameUnsafe# "nil"#)
 
 {-# INLINE withCleanup #-}
 -- | Feed a value into a function and clean it up afterwards.
 withCleanup
-  :: (WithCallStack, MonadMask (m s), MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadMask (m s), MonadEmacs m)
   => EmacsRef m s
   -> (EmacsRef m s -> m s a)
   -> m s a
 withCleanup x f = f x `finally` freeValue x
 
-{-# INLINABLE extractVector #-}
+{-# INLINE extractVector #-}
 -- | Get all elements form an Emacs vector.
 extractVector
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
-  => EmacsRef m s -> m s (V.Vector (EmacsRef m s))
+  :: (WithCallStack, MonadEmacs m, U.Unbox (EmacsRef m s))
+  => EmacsRef m s -> m s (U.Vector (EmacsRef m s))
 extractVector xs = do
   n <- vecSize xs
-  V.generateM n $ vecGet xs
-
-{-# INLINABLE extractVectorWith #-}
--- | Get all elements form an Emacs vector using specific function to
--- convert elements.
-extractVectorWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
-  => (EmacsRef m s -> m s a)
-  -> EmacsRef m s
-  -> m s (V.Vector a)
-extractVectorWith f xs = do
-  n <- vecSize xs
-  V.generateM n $ f <=< vecGet xs
-
-{-# INLINABLE extractUnboxedVectorWith #-}
--- | Get all elements form an Emacs vector using specific function to
--- convert elements.
-extractUnboxedVectorWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s), U.Unbox a)
-  => (EmacsRef m s -> m s a)
-  -> EmacsRef m s
-  -> m s (U.Vector a)
-extractUnboxedVectorWith f xs = do
-  n <- vecSize xs
-  U.generateM n $ f <=< vecGet xs
+  U.generateM n $ vecGet xs
 
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.
 makeVector
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => [EmacsRef m s]
   -> m s (EmacsRef m s)
 makeVector = funcallPrimitive (mkSymbolNameUnsafe# "vector"#)
@@ -235,7 +206,7 @@ makeVector = funcallPrimitive (mkSymbolNameUnsafe# "vector"#)
 {-# INLINE vconcat2 #-}
 -- | Concatenate two vectors.
 vconcat2
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> EmacsRef m s
   -> m s (EmacsRef m s)
@@ -245,7 +216,7 @@ vconcat2 x y =
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.
 cons
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -- ^ car
   -> EmacsRef m s -- ^ cdr
   -> m s (EmacsRef m s)
@@ -254,7 +225,7 @@ cons x y = funcallPrimitive (mkSymbolNameUnsafe# "cons"#) [x, y]
 {-# INLINE car #-}
 -- | Take first element of a pair.
 car
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
 car = funcallPrimitive (mkSymbolNameUnsafe# "car"#) . (: [])
@@ -262,7 +233,7 @@ car = funcallPrimitive (mkSymbolNameUnsafe# "car"#) . (: [])
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
 cdr
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
 cdr = funcallPrimitive (mkSymbolNameUnsafe# "cdr"#) . (: [])
@@ -270,14 +241,14 @@ cdr = funcallPrimitive (mkSymbolNameUnsafe# "cdr"#) . (: [])
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.
 nil
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => m s (EmacsRef m s)
 nil = intern (mkSymbolNameUnsafe# "nil"#)
 
 {-# INLINE setcar #-}
 -- | Mutate first element of a cons pair.
 setcar
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
@@ -286,7 +257,7 @@ setcar x y = funcallPrimitive_ (mkSymbolNameUnsafe# "setcar"#) [x, y]
 {-# INLINE setcdr #-}
 -- | Mutate second element of a cons pair.
 setcdr
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
@@ -295,7 +266,7 @@ setcdr x y = funcallPrimitive_ (mkSymbolNameUnsafe# "setcdr"#) [x, y]
 {-# INLINE makeList #-}
 -- | Construct vanilla Emacs list from a Haskell list.
 makeList
-  :: (WithCallStack, MonadEmacs m, Monad (m s), Foldable f)
+  :: (WithCallStack, MonadEmacs m, Foldable f)
   => f (EmacsRef m s)
   -> m s (EmacsRef m s)
 makeList = unfoldEmacsListWith (pure . go) . toList
@@ -307,7 +278,7 @@ makeList = unfoldEmacsListWith (pure . go) . toList
 {-# INLINE extractList #-}
 -- | Extract vanilla Emacs list as Haskell list.
 extractList
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s [EmacsRef m s]
 extractList = extractListWith pure
@@ -315,7 +286,7 @@ extractList = extractListWith pure
 {-# INLINE extractListWith #-}
 -- | Extract vanilla Emacs list as a Haskell list.
 extractListWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (EmacsRef m s -> m s a)
   -> EmacsRef m s
   -> m s [a]
@@ -326,7 +297,7 @@ extractListWith = \f -> fmap reverse . extractListRevWith f
 -- efficient than 'extractList' but doesn't preserve order of elements
 -- that was specified from Emacs side.
 extractListRevWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (EmacsRef m s -> m s a)
   -> EmacsRef m s
   -> m s [a]
@@ -344,7 +315,7 @@ extractListRevWith f = go []
 {-# INLINE foldlEmacsListWith #-}
 -- | Fold Emacs list starting from the left.
 foldlEmacsListWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (a -> EmacsRef m s -> m s a)
   -> a
   -> EmacsRef m s
@@ -362,7 +333,7 @@ foldlEmacsListWith f = go
 {-# INLINE unfoldEmacsListWith #-}
 -- | Fold Emacs list starting from the left.
 unfoldEmacsListWith
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (a -> m s (Maybe (EmacsRef m s, a)))
   -> a
   -> m s (EmacsRef m s)
@@ -390,7 +361,7 @@ unfoldEmacsListWith f accum = do
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.
 addFaceProp
-  :: (WithCallStack, MonadEmacs m, Monad (m s), Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
   => EmacsRef m s       -- ^ String to add face to
   -> SymbolName a       -- ^ Face name
   -> m s (EmacsRef m s) -- ^ Propertised string
@@ -401,7 +372,7 @@ addFaceProp str face = do
 {-# INLINE propertize #-}
 -- | Add new 'face property to a string.
 propertize
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s                                     -- ^ String to add properties to
   -> [(SomeSymbolName EmacsSymbolName, EmacsRef m s)] -- ^ Properties
   -> m s (EmacsRef m s)                               -- ^ Propertised string
@@ -412,7 +383,7 @@ propertize str props = do
 {-# INLINE concat2 #-}
 -- | Concatenate two strings.
 concat2
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> EmacsRef m s
   -> m s (EmacsRef m s)
@@ -422,7 +393,7 @@ concat2 x y =
 {-# INLINE valueToText #-}
 -- | Convert an Emacs value into a string using @prin1-to-string@.
 valueToText
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s Text
 valueToText x =
@@ -432,7 +403,7 @@ valueToText x =
 -- | Wrapper around Emacs @symbol-name@ function - take a symbol
 -- and produce an Emacs string with its textual name.
 symbolName
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
 symbolName = funcallPrimitive (mkSymbolNameUnsafe# "symbol-name"#) . (:[])

@@ -95,6 +95,7 @@ library
     cpp-options: -DMODULE_ASSERTIONS
   exposed-modules:
     Data.Emacs.Module.Args
+    Data.Emacs.Module.Doc
     Data.Emacs.Module.Env
     Data.Emacs.Module.Env.Functions
     Data.Emacs.Module.NonNullPtr
@@ -102,6 +103,7 @@ library
     Data.Emacs.Module.SymbolName
     Data.Emacs.Module.SymbolName.TH
     Data.Emacs.Module.Value
+    Data.Emacs.Module.ValueStore
     Emacs.Module
     Emacs.Module.Assert
     Emacs.Module.Errors
@@ -116,6 +118,7 @@ library
     Data.Emacs.Module.Raw.Value
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
+    Data.Emacs.Module.ValueStore.Internal
   hs-source-dirs:
     src
   build-depends:
@@ -125,13 +128,13 @@ library
     , exceptions
     , monad-control
     , mtl
+    , primitive
     , prettyprinter >=1.7
-    , resourcet
     , safe-exceptions-checked
     , text
     , template-haskell
     , transformers-base
-    , vector
+    , vector >=0.13
     , void
 
   includes:

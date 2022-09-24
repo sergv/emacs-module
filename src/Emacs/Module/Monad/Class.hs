@@ -11,6 +11,7 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -20,15 +21,14 @@ module Emacs.Module.Monad.Class
   ) where
 
 import Control.Exception.Safe.Checked (Throws)
-
 import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
 import Data.Int
 import Data.Kind
 import Foreign.Ptr (Ptr)
 import Prettyprinter
 
 import Data.Emacs.Module.Args
+import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.SymbolName (SymbolName, UseSymbolName)
@@ -37,20 +37,19 @@ import Emacs.Module.Errors
 
 -- | Basic Haskell function that can be called by Emacs.
 type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
-  = (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError, Throws UserError)
-  => EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
+  = EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsReturn m s)
 
 -- | A mtl-style typeclass for interacting with Emacs. Typeclass functions
 -- are mostly direct translations of emacs interface provided by 'emacs-module.h'.
 --
 -- For more functions please refer to "Emacs.Module.Functions" module.
-class MonadEmacs (m :: k -> Type -> Type) where
+class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
 
   -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
   -- after 'm' finishes its execution.
   type EmacsRef m :: k -> Type
 
-  -- | Type of values that Haskell functions may returns to Emacs.
+  -- | Type of values that Haskell functions may return to Emacs.
   type EmacsReturn m :: k -> Type
 
   -- | Return an 'EmacsRef' back to Emacs.
@@ -96,8 +95,10 @@ class MonadEmacs (m :: k -> Type -> Type) where
   -- be fed into 'bindFunction'.
   makeFunction
     :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'. EmacsFunction req opt rest s' m) -- ^ Haskell function to export
-    -> C8.ByteString                                -- ^ Documentation
+    => (forall s'.
+         (Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow, Throws UserError) =>
+         EmacsFunction req opt rest s' m) -- ^ Haskell function to export
+    -> Doc.Doc                                      -- ^ Documentation
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function that may call back into Haskell.

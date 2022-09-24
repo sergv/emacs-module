@@ -6,17 +6,29 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE PolyKinds     #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
-module Data.Emacs.Module.Value.Internal (Value(..)) where
+module Data.Emacs.Module.Value.Internal
+  ( Value(..)
+  ) where
 
 import Control.DeepSeq
-import Control.Monad.Trans.Resource
-
+import Data.Vector.Generic qualified as G
+import Data.Vector.Generic.Mutable qualified as GM
+import Data.Vector.Unboxed qualified as U
 import GHC.Generics (Generic)
 
 import Data.Emacs.Module.Raw.Value (GlobalRef(..))
+import Data.Emacs.Module.ValueStore.Internal (ReleaseHandle(..))
 
 -- | Value that is independent of environment ('Env') that produced it.
 -- Incidentally, this implies that it's "protected" against Emacs GC and
@@ -30,8 +42,17 @@ import Data.Emacs.Module.Raw.Value (GlobalRef(..))
 -- produced it.
 data Value (s :: k) = Value
   { valuePayload       :: {-# UNPACK #-} !GlobalRef
-  , valueReleaseHandle :: {-# UNPACK #-} !ReleaseKey
+  , valueReleaseHandle :: {-# UNPACK #-} !ReleaseHandle
   } deriving (Generic)
 
-instance NFData (Value s) where
-  rnf (Value x y) = rnf x `seq` y `seq` ()
+instance NFData (Value s)
+
+instance U.IsoUnbox (Value a) (GlobalRef, ReleaseHandle)
+
+newtype instance U.MVector s (Value _) = MV_Value (U.MVector s (GlobalRef, ReleaseHandle))
+newtype instance U.Vector    (Value _) = V_Value  (U.Vector    (GlobalRef, ReleaseHandle))
+
+deriving via (Value s' `U.As` (GlobalRef, ReleaseHandle)) instance GM.MVector U.MVector (Value s')
+deriving via (Value s' `U.As` (GlobalRef, ReleaseHandle)) instance G.Vector   U.Vector  (Value s')
+
+instance U.Unbox (Value s')

@@ -40,10 +40,9 @@ import Control.Monad.Catch qualified as Catch
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Control.Monad.Trans.Resource as Resource
 import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
 import Data.Coerce
+import Data.Emacs.Module.Doc qualified as Doc
 import Data.Kind
 import Data.Proxy
 import Data.Text qualified as T
@@ -63,18 +62,20 @@ import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal
-import Data.Emacs.Module.Raw.Value (RawValue, GlobalRef(..))
+import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName
 import Data.Emacs.Module.Value.Internal
+import Data.Emacs.Module.ValueStore (ValueStore)
+import Data.Emacs.Module.ValueStore qualified as ValueStore
 import Emacs.Module.Assert
 import Emacs.Module.Errors
 import Emacs.Module.Monad.Class
 
 data Environment = Environment
-  { eEnv           :: !Env
-  , eErrorSym      :: !(NonNullPtr RawValue)
-  , eErrorData     :: !(NonNullPtr RawValue)
-  , eResourceState :: !Resource.InternalState
+  { eEnv            :: {-# UNPACK #-} !Env
+  , eErrorSym       :: {-# UNPACK #-} !(NonNullPtr RawValue)
+  , eErrorData      :: {-# UNPACK #-} !(NonNullPtr RawValue)
+  , eProducedValues :: {-# UNPACK #-} !(ValueStore GlobalRef)
   }
 
 -- | Concrete monad for interacting with Emacs. It provides:
@@ -101,11 +102,6 @@ newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment I
     , MonadFix
     )
 
-instance MonadResource (EmacsM s) where
-  liftResourceT action = EmacsM $ do
-    resState <- asks eResourceState
-    liftBase $ runInternalState action resState
-
 instance MonadBaseControl IO (EmacsM s) where
   type StM (EmacsM s) a = StM (ReaderT Environment IO) a
   {-# INLINE liftBaseWith #-}
@@ -120,17 +116,18 @@ runEmacsM
   -> IO a
 runEmacsM env (EmacsM action) =
   allocaNonNull $ \pErr ->
-    allocaNonNull $ \pData ->
-      Exception.bracket
-        Resource.createInternalState
-        Resource.closeInternalState
-        (\eResourceState ->
-          runReaderT action Environment
-            { eEnv       = env
-            , eErrorSym  = pErr
-            , eErrorData = pData
-            , eResourceState
-            })
+    allocaNonNull $ \pData -> do
+      eProducedValues <- ValueStore.new
+      res <- runReaderT action Environment
+        { eEnv       = env
+        , eErrorSym  = pErr
+        , eErrorData = pData
+        , eProducedValues
+        }
+      ValueStore.for_ eProducedValues $ \gref -> do
+        when (isValidGlobalRef gref) $
+          Raw.freeGlobalRef env gref
+      pure res
 
 {-# INLINE getRawValue #-}
 getRawValue :: Value s -> RawValue
@@ -150,16 +147,16 @@ makeValue
   => RawValue
   -> EmacsM s (Value s)
 makeValue raw = do
-  env <- EmacsM $ asks eEnv
+  Environment{eEnv, eProducedValues} <- EmacsM ask
   valuePayload <-
     checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
-      Raw.makeGlobalRef env raw
-  valueReleaseHandle <- register (Raw.freeGlobalRef env valuePayload)
+      Raw.makeGlobalRef eEnv raw
+  valueReleaseHandle <- liftIO $ ValueStore.add valuePayload eProducedValues
   pure Value{valuePayload, valueReleaseHandle}
 
 {-# INLINABLE unpackEnumFuncallExit #-}
 unpackEnumFuncallExit
-  :: (MonadThrow m, Throws EmacsInternalError, WithCallStack)
+  :: (Catch.MonadThrow m, Throws EmacsInternalError, WithCallStack)
   => Raw.EnumFuncallExit -> m (FuncallExit ())
 unpackEnumFuncallExit (Raw.EnumFuncallExit (CInt x)) =
   case funcallExitFromNum x of
@@ -174,7 +171,7 @@ nonLocalExitGet' = do
   Environment{eEnv, eErrorSym, eErrorData} <- EmacsM ask
   liftIO $ do
     x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet eEnv eErrorSym eErrorData
-    for x $ \_ ->
+    for x $ \() ->
       (,) <$> peek (unNonNullPtr eErrorSym) <*> peek (unNonNullPtr eErrorData)
 
 {-# INLINE nonLocalExitClear' #-}
@@ -241,7 +238,7 @@ internUnchecked sym =
 
 {-# INLINE funcallUnchecked #-}
 funcallUnchecked :: UseSymbolName a => SymbolName a -> [RawValue] -> EmacsM s RawValue
-funcallUnchecked name args = do
+funcallUnchecked name args =
   liftIO' $ \env -> do
     fun <- reifySymbol env name
     withArrayLen args $ \n args' ->
@@ -295,7 +292,8 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE produceRef #-}
   produceRef x = do
-    _ <- Resource.unprotect $ valueReleaseHandle x
+    -- -- Don't free - wouldn't that introduce a leak?
+    -- liftIO . ValueStore.forget (valueReleaseHandle x) dummyGlobalRef =<< EmacsM (asks eProducedValues)
     pure x
 
   {-# INLINE nonLocalExitCheck #-}
@@ -324,31 +322,27 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   {-# INLINE nonLocalExitClear #-}
   nonLocalExitClear = nonLocalExitClear'
 
-  -- {-# INLINE makeGlobalRef #-}
-  -- makeGlobalRef x =
-  --   checkExitAndRethrowInHaskell' "makeGlobalRef failed" $
-  --     liftIO' (\env -> Raw.makeGlobalRef env x)
-  --
-  -- {-# INLINE freeGlobalRef #-}
-  -- freeGlobalRef x =
-  --   checkExitAndRethrowInHaskell' "freeGlobalRef failed" $
-  --     liftIO' (\env -> Raw.freeGlobalRef env x)
-
   {-# INLINE freeValue #-}
   freeValue :: WithCallStack => Value s -> EmacsM s ()
-  freeValue = Resource.release . valueReleaseHandle
+  freeValue Value{valuePayload, valueReleaseHandle} = do
+    Environment{eEnv, eProducedValues} <- EmacsM ask
+    liftIO $ do
+      Raw.freeGlobalRef eEnv valuePayload
+      ValueStore.forget valueReleaseHandle dummyGlobalRef eProducedValues
 
   {-# INLINE makeFunction #-}
   makeFunction
     :: forall req opt rest s. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'. EmacsFunction req opt rest s' EmacsM)
-    -> C8.ByteString
+    => (forall s'.
+         (Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow, Throws UserError) =>
+         EmacsFunction req opt rest s' EmacsM)
+    -> Doc.Doc
     -> EmacsM s (Value s)
-  makeFunction emacsFun docs =
+  makeFunction emacsFun doc =
     makeValue =<<
     checkExitAndRethrowInHaskell' "makeFunction failed"
       (liftIO' $ \env ->
-        C8.useAsCString docs $ \docs' -> do
+        Doc.useDocAsCString doc $ \docs' -> do
           (implementationPtr :: RawFunction ()) <- exportToEmacs implementation
           func <- Raw.makeFunction env minArity maxArity implementationPtr docs' (castFunPtrToPtr (unRawFunction implementationPtr))
           Raw.setFunctionFinalizer env func freeHaskellFunPtrWrapped

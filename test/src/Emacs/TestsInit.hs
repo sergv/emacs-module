@@ -67,26 +67,26 @@ initialise' = do
   pure True
 
 apply2
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 apply2 (R f (R x Stop)) = do
   y <- funcallPrimitive (mkSymbolNameUnsafe# "funcall"#) [f, x]
   produceRef =<< funcall (mkSymbolNameUnsafe# "funcall"#) [f, y]
 
 add
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 add (R x (R y Stop)) =
   produceRef =<< makeInt =<< (+) <$> extractInt x <*> extractInt y
 
 getRest
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'True s m
 getRest (R _req (Rest rest)) =
   produceRef =<< funcall (mkSymbolNameUnsafe# "vector"#) rest
 
 appendLotsOfStrings
-  :: forall m s. (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: forall m s. (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
@@ -99,7 +99,7 @@ appendLotsOfStrings (R n Stop) = do
   produceRef $ fromMaybe empty' res'
 
 appendLotsOfVectors
-  :: (WithCallStack, MonadEmacs m, Monad (m s), MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfVectors (R n Stop) = do
   n'     <- extractInt n
@@ -110,12 +110,12 @@ appendLotsOfVectors (R n Stop) = do
   empty' <- makeVector []
 
   let input = replicate n' (makeVector [one, two, three], [1, 2, 3])
-      res = appendTree vconcat2' input
+      res   = appendTree vconcat2' input
   res' <- traverse fst res
   produceRef $ fromMaybe empty' res'
 
 emacsReplicate
-  :: (WithCallStack, MonadEmacs m, Monad (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 emacsReplicate (R n (R x Stop)) = do
   n' <- extractInt n

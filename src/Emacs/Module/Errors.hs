@@ -8,10 +8,10 @@
 -- This module defines various kinds of exception that this library
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -45,19 +45,20 @@ import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 import Data.Void
 import Data.Void.Unsafe
+import Foreign
 import Foreign.C.String
-import Foreign.Marshal.Array
 import GHC.Stack (CallStack, callStack, prettyCallStack)
 import Prettyprinter
 import Prettyprinter.Render.Text as PP
 
 import Data.Emacs.Module.Env qualified as Raw
+import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
--- import qualified Data.Emacs.Module.Value.Internal as Emacs
 
 -- | A Haskell exception used to signal a @throw@ exit performed by an
 -- Emacs function.
@@ -75,8 +76,9 @@ instance Exception EmacsThrow
 
 reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO RawValue
 reportEmacsThrowToEmacs env et = do
+  nil <- mkNil env
   reportEmacsThrowToEmacs' env et
-  returnNil env
+  pure nil
 
 reportEmacsThrowToEmacs' :: Env -> EmacsThrow -> IO ()
 reportEmacsThrowToEmacs' env EmacsThrow{emacsThrowTag, emacsThrowValue} = do
@@ -140,8 +142,9 @@ instance Pretty EmacsError where
 
 reportErrorToEmacs :: Env -> EmacsError -> IO RawValue
 reportErrorToEmacs env e = do
+  nil <- mkNil env
   report render env e
-  returnNil env
+  pure nil
 
 -- | A low-level error thrown when assumptions of this package are
 -- violated and it's not safe to proceed further.
@@ -163,8 +166,9 @@ mkEmacsInternalError msg = EmacsInternalError
 
 reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO RawValue
 reportInternalErrorToEmacs env e = do
+  nil <- mkNil env
   report render env e
-  returnNil env
+  pure nil
 
 instance Pretty EmacsInternalError where
   pretty EmacsInternalError{emacsInternalErrMsg, emacsInternalErrStack} =
@@ -186,8 +190,9 @@ formatSomeException e =
 
 reportAnyErrorToEmacs :: Env -> SomeException -> IO RawValue
 reportAnyErrorToEmacs env e = do
+  nil <- mkNil env
   report formatSomeException env e
-  returnNil env
+  pure nil
 
 -- | Catch all errors this package might throw in an IO action
 -- and make Emacs aware of them.
@@ -199,25 +204,26 @@ reportAllErrorsToEmacs
   -> IO a -- ^ Result to return on error.
   -> ((Throws EmacsInternalError, Throws EmacsError, Throws UserError, Throws EmacsThrow) => IO a)
   -> IO a
-reportAllErrorsToEmacs env resultOnErr x =
-  Exception.handle (\e -> report formatSomeException env e *> resultOnErr) $
-  Checked.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr) $
-  Checked.uncheck (Proxy @EmacsInternalError) $
-  Checked.uncheck (Proxy @EmacsError) $
-  Checked.uncheck (Proxy @UserError) x
+reportAllErrorsToEmacs env resultOnErr x
+  = Exception.handle (\e -> report formatSomeException env e *> resultOnErr)
+  $ Checked.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
+  $ Checked.uncheck (Proxy @EmacsInternalError)
+  $ Checked.uncheck (Proxy @EmacsError)
+  $ Checked.uncheck (Proxy @UserError) x
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
-  errSym  <- reifySymbol env (mkSymbolNameUnsafe# "error"#)
-  listSym <- reifySymbol env (mkSymbolNameUnsafe# "list"#)
+  errSym  <- reifySymbol env Sym.error
+  listSym <- reifySymbol env Sym.list
   withTextAsCString0AndLen (format err) $ \str len -> do
     str' <- Raw.makeString env str (fromIntegral len)
-    withArrayLen [str'] $ \nargs argsPtr -> do
-      errData <- Raw.funcallPrimitive env listSym (fromIntegral nargs) (mkNonNullPtr argsPtr)
+    alloca $ \argsPtr -> do
+      poke argsPtr str'
+      errData <- Raw.funcallPrimitive env (getRawValue listSym) 1 (mkNonNullPtr argsPtr)
       -- The 'nonLocalExitSignal' function does not overwrite pending
       -- signals, so it's ok to use it here without checking whether an
       -- error is already going on.
-      Raw.nonLocalExitSignal env errSym errData
+      Raw.nonLocalExitSignal env (getRawValue errSym) errData
 
 withTextAsCString0AndLen :: Text -> (CString -> Int -> IO a) -> IO a
 withTextAsCString0AndLen str f =
@@ -225,9 +231,9 @@ withTextAsCString0AndLen str f =
   where
     utf8 = TE.encodeUtf8 str
 
-returnNil :: Env -> IO RawValue
-returnNil env =
-  reifySymbol env (mkSymbolNameUnsafe# "nil"#)
+mkNil :: WithCallStack => Env -> IO RawValue
+mkNil env =
+  getRawValue <$> reifySymbol env Sym.nil
 
 render :: Pretty a => a -> Text
 render = render' . pretty

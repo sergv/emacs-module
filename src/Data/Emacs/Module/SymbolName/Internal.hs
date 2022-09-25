@@ -9,14 +9,18 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MagicHash                  #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RecursiveDo                #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE UnliftedNewtypes           #-}
 
@@ -25,14 +29,15 @@
 module Data.Emacs.Module.SymbolName.Internal
   ( Static(..)
   , Dynamic(..)
-  , UseSymbolName(..)
+  , Cached(..)
   , SymbolName(..)
   , SomeSymbolName(..)
-  , EmacsSymbolName
   , cacheSymbolName
   , mkSymbolName
   , mkSymbolNameUnsafe#
   , mkSymbolNameShortByteString
+
+  , UseSymbolName(..)
   ) where
 
 import Data.ByteString.Char8 qualified as C8
@@ -43,11 +48,13 @@ import Data.Kind
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
 import Foreign.C.Types
-import GHC.Exts (Addr#, byteArrayContents#)
+import GHC.Exts (Addr#, byteArrayContents#, proxy#)
 import GHC.Ptr
+import GHC.TypeLits
 import Prettyprinter
 import System.IO.Unsafe
 
+import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
@@ -78,50 +85,29 @@ instance Pretty Dynamic where
     $ C8.init
     $ BSS.fromShort str
 
-newtype Cached = Cached { _unCached :: IORef (Env -> IO GlobalRef) }
+newtype Cached (name :: Symbol) = Cached { unCached :: IORef (Env -> IO GlobalRef) }
   deriving (Eq)
 
-cacheSymbolName :: forall a. UseSymbolName a => SymbolName a -> SymbolName Cached
+instance KnownSymbol name => Pretty (Cached name) where
+  pretty _ = pretty $ symbolVal' (proxy# @name)
+
+cacheSymbolName :: forall sym. SymbolName Static -> SymbolName (Cached sym)
 cacheSymbolName = unsafePerformIO . go
   where
-    go :: SymbolName a -> IO (SymbolName Cached)
+    go :: SymbolName Static -> IO (SymbolName (Cached sym))
     go name = do
       res <- unsafeFixIO $ \ref ->
         newIORef $ \env -> do
-          glob <- Raw.makeGlobalRef env =<< reifySymbol env name
-          writeIORef ref $ \_env -> pure glob
-          pure glob
+          global <- Raw.makeGlobalRef env =<< reifySymbol env name
+          writeIORef ref $ \_env -> pure global
+          pure global
       pure $ SymbolName $ Cached res
-
-class UseSymbolName a where
-  reifySymbol :: Env -> SymbolName a -> IO RawValue
-
-instance UseSymbolName Static where
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Static addr)) =
-    Raw.intern env addr
-
-instance UseSymbolName Dynamic where
-  -- I like to live dangerously...
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Dynamic (BSS.SBS arr))) =
-    Raw.intern env (Ptr (byteArrayContents# arr))
-
-instance UseSymbolName Cached where
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Cached ref)) = do
-    unGlobalRef <$> (($ env) =<< readIORef ref)
 
 {-# INLINE mkSymbolName #-}
 mkSymbolName :: C8.ByteString -> SymbolName Dynamic
 mkSymbolName = mkSymbolNameShortByteString . BSS.toShort
 
 data SomeSymbolName (c :: Type -> Constraint) = forall a. c a => SomeSymbolName (SymbolName a)
-
--- | Just aggregates various instances that various SymbolNames (e.g.
--- bouth dynamic and static) can be expected to satisfy.
-class (Pretty a, UseSymbolName a) => EmacsSymbolName a
-instance (Pretty a, UseSymbolName a) => EmacsSymbolName a
 
 -- | Should be applied to unboxed string literals like this
 --
@@ -143,3 +129,26 @@ mkSymbolNameShortByteString str
   = SymbolName $ Dynamic str
   | otherwise
   = SymbolName $ Dynamic $ str `BSS.snoc` 0
+
+class GetRawValue (ReifiedSymbol a) => UseSymbolName a where
+  type ReifiedSymbol a :: Type
+  reifySymbol :: Env -> SymbolName a -> IO (ReifiedSymbol a)
+
+instance UseSymbolName Static where
+  type ReifiedSymbol Static = RawValue
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Static addr)) =
+    Raw.intern env addr
+
+instance UseSymbolName Dynamic where
+  type ReifiedSymbol Dynamic = RawValue
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Dynamic (BSS.SBS arr))) =
+    -- I like to live dangerously...
+    Raw.intern env (Ptr (byteArrayContents# arr))
+
+instance KnownSymbol name => UseSymbolName (Cached name) where
+  type ReifiedSymbol (Cached _) = GlobalRef
+  {-# INLINE reifySymbol #-}
+  reifySymbol env (SymbolName (Cached ref)) =
+    ($ env) =<< readIORef ref

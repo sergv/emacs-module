@@ -8,16 +8,17 @@
 -- Wrappers around some Emacs functions, independent of concrete monad.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Emacs.Module.Functions
   ( bindFunction
-  , withCleanup
   , provide
   , makeUserPtrFromStablePtr
   , extractStablePtrFromUserPtr
@@ -71,30 +72,36 @@ import Prettyprinter
 
 import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
+
+-- | Just aggregates various instances that various SymbolNames (e.g.
+-- bouth dynamic and static) can be expected to satisfy.
+class (UseSymbolName a, Pretty a, MakeEmacsRef (ReifiedSymbol a) m) => EmacsSymbolName m a
+instance (UseSymbolName a, Pretty a, MakeEmacsRef (ReifiedSymbol a) m) => EmacsSymbolName m a
 
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
 bindFunction
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
   => SymbolName a -- ^ Name
   -> EmacsRef m s -- ^ Function value
   -> m s ()
 bindFunction name def = do
   name' <- intern name
-  funcallPrimitive_ (mkSymbolNameUnsafe# "fset"#) [name', def]
+  funcallPrimitive_ Sym.fset [name', def]
 
 {-# INLINE provide #-}
 -- | Signal to Emacs that certain feature is being provided. Returns provided
 -- symbol.
 provide
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
   => SymbolName a -- ^ Feature to provide
   -> m s ()
 provide sym = do
   sym' <- intern sym
-  funcallPrimitive_ (mkSymbolNameUnsafe# "provide"#) [sym']
+  funcallPrimitive_ Sym.provide [sym']
 
 {-# INLINE makeUserPtrFromStablePtr #-}
 -- | Pack a stable pointer as Emacs @user_ptr@.
@@ -175,16 +182,7 @@ extractBool = isNotNil
 makeBool
   :: (WithCallStack, MonadEmacs m)
   => Bool -> m s (EmacsRef m s)
-makeBool b = intern (if b then mkSymbolNameUnsafe# "t"# else mkSymbolNameUnsafe# "nil"#)
-
-{-# INLINE withCleanup #-}
--- | Feed a value into a function and clean it up afterwards.
-withCleanup
-  :: (WithCallStack, MonadMask (m s), MonadEmacs m)
-  => EmacsRef m s
-  -> (EmacsRef m s -> m s a)
-  -> m s a
-withCleanup x f = f x `finally` freeValue x
+makeBool b = if b then intern Sym.t else nil
 
 {-# INLINE extractVector #-}
 -- | Get all elements form an Emacs vector.
@@ -201,7 +199,7 @@ makeVector
   :: (WithCallStack, MonadEmacs m)
   => [EmacsRef m s]
   -> m s (EmacsRef m s)
-makeVector = funcallPrimitive (mkSymbolNameUnsafe# "vector"#)
+makeVector = funcallPrimitive Sym.vector
 
 {-# INLINE vconcat2 #-}
 -- | Concatenate two vectors.
@@ -211,7 +209,7 @@ vconcat2
   -> EmacsRef m s
   -> m s (EmacsRef m s)
 vconcat2 x y =
-  funcallPrimitive (mkSymbolNameUnsafe# "vconcat"#) [x, y]
+  funcallPrimitive Sym.vconcat [x, y]
 
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.
@@ -220,7 +218,7 @@ cons
   => EmacsRef m s -- ^ car
   -> EmacsRef m s -- ^ cdr
   -> m s (EmacsRef m s)
-cons x y = funcallPrimitive (mkSymbolNameUnsafe# "cons"#) [x, y]
+cons x y = funcallPrimitive Sym.cons [x, y]
 
 {-# INLINE car #-}
 -- | Take first element of a pair.
@@ -228,7 +226,7 @@ car
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-car = funcallPrimitive (mkSymbolNameUnsafe# "car"#) . (: [])
+car = funcallPrimitive Sym.car . (: [])
 
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
@@ -236,14 +234,14 @@ cdr
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-cdr = funcallPrimitive (mkSymbolNameUnsafe# "cdr"#) . (: [])
+cdr = funcallPrimitive Sym.cdr . (: [])
 
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.
 nil
   :: (WithCallStack, MonadEmacs m)
   => m s (EmacsRef m s)
-nil = intern (mkSymbolNameUnsafe# "nil"#)
+nil = intern Sym.nil
 
 {-# INLINE setcar #-}
 -- | Mutate first element of a cons pair.
@@ -252,7 +250,7 @@ setcar
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
-setcar x y = funcallPrimitive_ (mkSymbolNameUnsafe# "setcar"#) [x, y]
+setcar x y = funcallPrimitive_ Sym.setcar [x, y]
 
 {-# INLINE setcdr #-}
 -- | Mutate second element of a cons pair.
@@ -261,7 +259,7 @@ setcdr
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
-setcdr x y = funcallPrimitive_ (mkSymbolNameUnsafe# "setcdr"#) [x, y]
+setcdr x y = funcallPrimitive_ Sym.setcdr [x, y]
 
 {-# INLINE makeList #-}
 -- | Construct vanilla Emacs list from a Haskell list.
@@ -350,8 +348,7 @@ unfoldEmacsListWith f accum = do
     go nilVal = go'
       where
         go' acc cell = do
-          acc' <- f acc
-          case acc' of
+          f acc >>= \case
             Nothing         -> pure ()
             Just (x, acc'') -> do
               cell' <- cons x nilVal
@@ -361,24 +358,24 @@ unfoldEmacsListWith f accum = do
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.
 addFaceProp
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a)
+  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
   => EmacsRef m s       -- ^ String to add face to
   -> SymbolName a       -- ^ Face name
   -> m s (EmacsRef m s) -- ^ Propertised string
 addFaceProp str face = do
   face' <- intern face
-  propertize str [(SomeSymbolName (mkSymbolNameUnsafe# "face"#), face')]
+  propertize str [(SomeSymbolName Sym.face, face')]
 
 {-# INLINE propertize #-}
 -- | Add new 'face property to a string.
 propertize
   :: (WithCallStack, MonadEmacs m)
-  => EmacsRef m s                                     -- ^ String to add properties to
-  -> [(SomeSymbolName EmacsSymbolName, EmacsRef m s)] -- ^ Properties
-  -> m s (EmacsRef m s)                               -- ^ Propertised string
+  => EmacsRef m s                                         -- ^ String to add properties to
+  -> [(SomeSymbolName (EmacsSymbolName m), EmacsRef m s)] -- ^ Properties
+  -> m s (EmacsRef m s)                                   -- ^ Propertised string
 propertize str props = do
   props' <- traverse (\(SomeSymbolName name, val) -> (\name' -> [name', val]) <$> intern name) props
-  funcallPrimitive (mkSymbolNameUnsafe# "propertize"#) (str : concat props')
+  funcallPrimitive Sym.propertize (str : concat props')
 
 {-# INLINE concat2 #-}
 -- | Concatenate two strings.
@@ -388,7 +385,7 @@ concat2
   -> EmacsRef m s
   -> m s (EmacsRef m s)
 concat2 x y =
-  funcallPrimitive (mkSymbolNameUnsafe# "concat"#) [x, y]
+  funcallPrimitive Sym.concat [x, y]
 
 {-# INLINE valueToText #-}
 -- | Convert an Emacs value into a string using @prin1-to-string@.
@@ -397,7 +394,7 @@ valueToText
   => EmacsRef m s
   -> m s Text
 valueToText x =
-  extractText =<< funcallPrimitive (mkSymbolNameUnsafe# "prin1-to-string"#) [x]
+  extractText =<< funcallPrimitive Sym.prin1ToString [x]
 
 {-# INLINE symbolName #-}
 -- | Wrapper around Emacs @symbol-name@ function - take a symbol
@@ -406,4 +403,4 @@ symbolName
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-symbolName = funcallPrimitive (mkSymbolNameUnsafe# "symbol-name"#) . (:[])
+symbolName = funcallPrimitive Sym.symbolName . (:[])

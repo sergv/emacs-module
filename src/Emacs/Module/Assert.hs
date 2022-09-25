@@ -17,14 +17,14 @@ module Emacs.Module.Assert
 
 import Data.Kind (Constraint)
 
-#ifdef ASSERTIONS
+#ifdef CALL_STACKS
 import GHC.Stack (HasCallStack)
 #endif
 
 -- | Call stacks for all emacs-related functions in Haskell.
--- Will be disabled unless this package was build with 'assertions'
+-- Will be disabled unless this package was build with 'call-stacks'
 -- flag enabled.
-#ifdef ASSERTIONS
+#ifdef CALL_STACKS
 type WithCallStack = (HasCallStack :: Constraint)
 #else
 type WithCallStack = (() :: Constraint)

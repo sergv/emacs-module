@@ -6,7 +6,8 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Emacs.Module.NonNullPtr
   ( NonNullPtr
@@ -16,6 +17,7 @@ module Data.Emacs.Module.NonNullPtr
   , allocaBytesNonNull
   ) where
 
+import Data.Coerce
 import Foreign
 
 import Data.Emacs.Module.NonNullPtr.Internal
@@ -31,9 +33,9 @@ mkNonNullPtr = NonNullPtr
 #endif
 
 {-# INLINE allocaNonNull #-}
-allocaNonNull :: Storable a => (NonNullPtr a -> IO b) -> IO b
-allocaNonNull f = alloca (f . NonNullPtr)
+allocaNonNull :: forall a b. Storable a => (NonNullPtr a -> IO b) -> IO b
+allocaNonNull = coerce (alloca :: (Ptr a -> IO b) -> IO b)
 
 {-# INLINE allocaBytesNonNull #-}
-allocaBytesNonNull :: Int -> (NonNullPtr a -> IO b) -> IO b
-allocaBytesNonNull n f = allocaBytes n (f . NonNullPtr)
+allocaBytesNonNull :: forall a b. Int -> (NonNullPtr a -> IO b) -> IO b
+allocaBytesNonNull = coerce (allocaBytes :: Int -> (Ptr a -> IO b) -> IO b)

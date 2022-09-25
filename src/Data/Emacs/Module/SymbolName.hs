@@ -11,11 +11,11 @@
 module Data.Emacs.Module.SymbolName
   ( SymbolName
   , SomeSymbolName(..)
-  , UseSymbolName(..)
-  , EmacsSymbolName
   , mkSymbolName
   , mkSymbolNameUnsafe#
   , mkSymbolNameShortByteString
+
+  , UseSymbolName(..)
   ) where
 
 import Data.Emacs.Module.SymbolName.Internal

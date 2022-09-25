@@ -10,8 +10,9 @@
 
 module Data.Emacs.Module.NonNullPtr.Internal (NonNullPtr(..)) where
 
+import Control.DeepSeq
 import Foreign
 
 newtype NonNullPtr a = NonNullPtr { unNonNullPtr :: Ptr a }
-  deriving (Eq, Ord, Show, Storable)
+  deriving (Eq, Ord, Show, NFData, Storable)
 

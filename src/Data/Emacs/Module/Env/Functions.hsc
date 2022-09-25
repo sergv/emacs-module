@@ -23,20 +23,23 @@ module Data.Emacs.Module.Env.Functions
   ) where
 
 import Data.Data (Data)
-import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
+import Prettyprinter.Generics
 
 #include <emacs-module.h>
 
 -- | Possible Emacs function call outcomes. This is Haskell's version of
-data FuncallExit a =
-    -- | Function has returned normally.
+data FuncallExit a
+  = -- | Function has returned normally.
     FuncallExitReturn
   | -- | Function has signaled an error using @signal@.
     FuncallExitSignal a
   | -- | Function has exit using @throw@.
     FuncallExitThrow a
   deriving (Eq, Ord, Show, Data, Generic, Lift, Functor, Foldable, Traversable)
+
+instance Pretty a => Pretty (FuncallExit a) where
+  pretty = ppGeneric
 
 funcallExitToNum :: Num a => FuncallExit b -> a
 funcallExitToNum = \case

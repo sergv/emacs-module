@@ -43,20 +43,17 @@ source-repository head
   type: git
   location: https://github.com/sergv/emacs-module.git
 
-flag assertions
+flag call-stacks
   description:
-    Enable runtime assertions
+    Enable call stacks
   default:
     False
   manual:
     True
 
-flag module-assertions
+flag assertions
   description:
-    Build a plugin that is intended to be used with Emacs's
-    '--module-assertions' flag enabled. Plugin will not free any
-    global values returned to Emacs and thus have an ever-growing
-    memory leak.
+    Enable runtime assertions
   default:
     False
   manual:
@@ -89,21 +86,22 @@ common ghc-options
 
 library
   import: ghc-options
+  if flag(call-stacks)
+    cpp-options: -DCALL_STACKS
   if flag(assertions)
     cpp-options: -DASSERTIONS
-  if flag(module-assertions)
-    cpp-options: -DMODULE_ASSERTIONS
   exposed-modules:
     Data.Emacs.Module.Args
     Data.Emacs.Module.Doc
     Data.Emacs.Module.Env
     Data.Emacs.Module.Env.Functions
+    Data.Emacs.Module.GetRawValue
     Data.Emacs.Module.NonNullPtr
     Data.Emacs.Module.Runtime
     Data.Emacs.Module.SymbolName
+    Data.Emacs.Module.SymbolName.Predefined
     Data.Emacs.Module.SymbolName.TH
     Data.Emacs.Module.Value
-    Data.Emacs.Module.ValueStore
     Emacs.Module
     Emacs.Module.Assert
     Emacs.Module.Errors
@@ -118,7 +116,6 @@ library
     Data.Emacs.Module.Raw.Value
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
-    Data.Emacs.Module.ValueStore.Internal
   hs-source-dirs:
     src
   build-depends:
@@ -130,6 +127,7 @@ library
     , mtl
     , primitive
     , prettyprinter >=1.7
+    , prettyprinter-combinators
     , safe-exceptions-checked
     , text
     , template-haskell

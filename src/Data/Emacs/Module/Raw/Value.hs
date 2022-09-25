@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
@@ -16,7 +17,6 @@
 module Data.Emacs.Module.Raw.Value
   ( RawValue(..)
   , GlobalRef(..)
-  , dummyGlobalRef
   ) where
 
 import Control.DeepSeq
@@ -27,23 +27,25 @@ import Data.Vector.Primitive qualified as P
 import Data.Vector.Unboxed qualified as U
 import Data.Vector.Unboxed.Base qualified as U
 import Foreign
+import GHC.Generics (Generic)
+import Prettyprinter (Pretty(..))
 
 -- | Basic handle on an Emacs value. Can be GC'ed after any call into Emacs.
--- To overcome that, use 'ValueGC'.
+-- To overcome that, use 'GlobalRef' and/or 'Value'.
 --
 -- Not a real pointer because emacs values are not really pointers. That is,
 -- they're completely opaque.
 newtype RawValue = RawValue { unRawValue :: Ptr RawValue }
-  deriving (NFData, Storable, Prim)
+  deriving (Show, NFData, Generic, Storable, Prim)
+
+instance Pretty RawValue where
+  pretty = pretty . show . unRawValue
 
 -- | Value that is independent of environment ('Env') that produced it.
 --
 -- Can be used to e.g. cache values that are expensive to compute from scratch.
 newtype GlobalRef = GlobalRef { unGlobalRef :: RawValue }
-  deriving (NFData, Storable, Prim)
-
-dummyGlobalRef :: GlobalRef
-dummyGlobalRef = GlobalRef (RawValue nullPtr)
+  deriving (Show, NFData, Generic, Storable, Prim, Pretty)
 
 newtype instance U.MVector s RawValue = MV_RawValue (P.MVector s RawValue)
 newtype instance U.Vector    RawValue = V_RawValue  (P.Vector    RawValue)

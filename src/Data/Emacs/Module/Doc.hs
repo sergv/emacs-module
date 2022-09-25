@@ -15,17 +15,34 @@
 module Data.Emacs.Module.Doc
   ( Doc
   , mkLiteralDoc
-  , mkByteStringDoc
+  , mkTextDoc
   , useDocAsCString
   ) where
 
-import Data.ByteString.Char8 qualified as C8
+import Data.String
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Foreign qualified as T
 import Foreign.C.String
 import GHC.Exts
 
 data Doc
   = StaticDoc Addr#
-  | DynamicDoc !C8.ByteString
+  | DynamicDoc !Text
+
+instance IsString Doc where
+  {-# INLINE fromString #-}
+  fromString = mkStringDoc
+
+mkStringDoc :: String -> Doc
+mkStringDoc = mkTextDoc . T.pack
+
+{-# INLINE [0] mkStringDoc #-}
+
+{-# RULES
+"Doc packChars/packAddress" forall s .
+   mkStringDoc (unpackCString# s) = mkLiteralDoc s
+ #-}
 
 -- | Indended to be used with unboxed string literals like this
 --
@@ -37,13 +54,13 @@ mkLiteralDoc :: Addr# -> Doc
 mkLiteralDoc = StaticDoc
 
 -- | Turn abritrary bytestring into 'Doc'.
-{-# INLINE mkByteStringDoc #-}
-mkByteStringDoc :: C8.ByteString -> Doc
-mkByteStringDoc = DynamicDoc
+{-# INLINE mkTextDoc #-}
+mkTextDoc :: Text -> Doc
+mkTextDoc = DynamicDoc
 
 {-# INLINE useDocAsCString #-}
 useDocAsCString :: Doc -> (CString -> IO a) -> IO a
 useDocAsCString doc f = case doc of
   StaticDoc addr -> f (Ptr addr)
-  DynamicDoc str -> C8.useAsCString str f
+  DynamicDoc str -> T.withCString str f
 

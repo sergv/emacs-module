@@ -28,6 +28,7 @@ import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)
 import Data.Emacs.Module.Runtime qualified as Runtime
 import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module
 import Emacs.Module.Assert
 import Emacs.Module.Errors
@@ -70,23 +71,24 @@ apply2
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 apply2 (R f (R x Stop)) = do
-  y <- funcallPrimitive (mkSymbolNameUnsafe# "funcall"#) [f, x]
-  produceRef =<< funcall (mkSymbolNameUnsafe# "funcall"#) [f, y]
+  y <- funcall Sym.funcall [f, x]
+  res <- funcall Sym.funcall [f, y]
+  pure res
 
 add
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 add (R x (R y Stop)) =
-  produceRef =<< makeInt =<< (+) <$> extractInt x <*> extractInt y
+  makeInt =<< (+) <$> extractInt x <*> extractInt y
 
 getRest
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'True s m
 getRest (R _req (Rest rest)) =
-  produceRef =<< funcall (mkSymbolNameUnsafe# "vector"#) rest
+  funcall (mkSymbolNameUnsafe# "vector"#) rest
 
 appendLotsOfStrings
-  :: forall m s. (WithCallStack, MonadEmacs m)
+  :: forall m s. (WithCallStack, MonadEmacs m, MonadMask (m s))
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
@@ -96,7 +98,7 @@ appendLotsOfStrings (R n Stop) = do
       input = replicate n' (makeString "foo", "foo")
       res = appendTree concat2' input
   res' <- traverse fst res
-  produceRef $ fromMaybe empty' res'
+  pure $ fromMaybe empty' res'
 
 appendLotsOfVectors
   :: (WithCallStack, MonadEmacs m, MonadMask (m s))
@@ -112,14 +114,14 @@ appendLotsOfVectors (R n Stop) = do
   let input = replicate n' (makeVector [one, two, three], [1, 2, 3])
       res   = appendTree vconcat2' input
   res' <- traverse fst res
-  produceRef $ fromMaybe empty' res'
+  pure $ fromMaybe empty' res'
 
 emacsReplicate
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 emacsReplicate (R n (R x Stop)) = do
   n' <- extractInt n
-  produceRef =<< makeList (replicate n' x)
+  makeList (replicate n' x)
 
 concat2'
   :: (WithCallStack, MonadEmacs m, MonadMask (m s))
@@ -132,10 +134,8 @@ concat2' (x, xStr) (y, yStr) =
     go = do
       x' <- x
       y' <- y
-      withCleanup x' $ \x'' ->
-        withCleanup y' $ \y'' -> do
-          _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
-          concat2 x'' y''
+      _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
+      concat2 x' y'
 
 vconcat2'
   :: (WithCallStack, MonadEmacs m, MonadMask (m s))
@@ -148,10 +148,8 @@ vconcat2' (x, xs) (y, ys) =
     go = do
       x' <- x
       y' <- y
-      withCleanup x' $ \x'' ->
-        withCleanup y' $ \y'' -> do
-          _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
-          vconcat2 x'' y''
+      _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
+      vconcat2 x' y'
 
 appendTree :: (a -> a -> a) -> [a] -> Maybe a
 appendTree f = reduce

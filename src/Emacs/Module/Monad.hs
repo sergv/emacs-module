@@ -71,10 +71,8 @@ import Emacs.Module.Assert
 import Emacs.Module.Errors
 import Emacs.Module.Monad.Class
 
-data Environment = Environment
-  { eEnv            :: {-# UNPACK #-} !Env
-  , eErrorSym       :: {-# UNPACK #-} !(NonNullPtr RawValue)
-  , eErrorData      :: {-# UNPACK #-} !(NonNullPtr RawValue)
+newtype Environment = Environment
+  { eEnv :: Env
   }
 
 -- | Concrete monad for interacting with Emacs. It provides:
@@ -115,13 +113,7 @@ runEmacsM
   -> (forall s. EmacsM s a)
   -> IO a
 runEmacsM env (EmacsM action) =
-  allocaNonNull $ \pErr ->
-    allocaNonNull $ \pData -> do
-      runReaderT action Environment
-        { eEnv       = env
-        , eErrorSym  = pErr
-        , eErrorData = pData
-        }
+  runReaderT action Environment { eEnv = env }
 
 {-# INLINE liftIO' #-}
 liftIO' :: (Env -> IO a) -> EmacsM s a
@@ -146,12 +138,13 @@ unpackEnumFuncallExit (Raw.EnumFuncallExit (CInt x)) =
 nonLocalExitGet'
   :: (WithCallStack, Throws EmacsInternalError)
   => EmacsM s (FuncallExit (RawValue, RawValue))
-nonLocalExitGet' = do
-  Environment{eEnv, eErrorSym, eErrorData} <- EmacsM ask
-  liftIO $ do
-    x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet eEnv eErrorSym eErrorData
-    for x $ \() ->
-      (,) <$> peek (unNonNullPtr eErrorSym) <*> peek (unNonNullPtr eErrorData)
+nonLocalExitGet' =
+  liftIO' $ \env -> do
+    allocaNonNull $ \pErr ->
+      allocaNonNull $ \pData -> do
+        x <- unpackEnumFuncallExit =<< Raw.nonLocalExitGet env pErr pData
+        for x $ \() ->
+          (,) <$> peek (unNonNullPtr pErr) <*> peek (unNonNullPtr pData)
 
 {-# INLINE nonLocalExitClear' #-}
 nonLocalExitClear' :: WithCallStack => EmacsM s ()
@@ -163,42 +156,46 @@ nonLocalExitCheck'
   => EmacsM s (FuncallExit ())
 nonLocalExitCheck' = liftIO' (unpackEnumFuncallExit <=< Raw.nonLocalExitCheck)
 
-
 checkExitAndRethrowInHaskell
   :: (WithCallStack, Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow)
   => Doc Void -- ^ Error message
   -> EmacsM s ()
 checkExitAndRethrowInHaskell errMsg = do
-  x <- nonLocalExitGet'
-  case x of
-    FuncallExitReturn            -> pure ()
-    FuncallExitSignal (sym, dat) -> do
-      -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
-      nonLocalExitClear'
-      dat'      <- funcallPrimitiveUnchecked Sym.cons [sym, dat]
-      formatted <- funcallPrimitiveUnchecked Sym.prin1ToString [dat']
-      formatRes <- nonLocalExitCheck'
-      case formatRes of
-        FuncallExitSignal{} -> do
+  exit <- nonLocalExitCheck'
+  case exit of
+    FuncallExitReturn -> pure ()
+    _                 -> do
+      x <- nonLocalExitGet'
+      case x of
+        FuncallExitReturn            -> pure ()
+        FuncallExitSignal (sym, dat) -> do
+          -- Important to clean up so that we can still call Emacs
+          -- functions to make nil return value, etc
           nonLocalExitClear'
-          Checked.throw $ mkEmacsInternalError $
-            "Failed to format Emacs error data while processing following error:" <> line <> errMsg
-        FuncallExitThrow{}  -> do
+          dat'      <- funcallPrimitiveUnchecked Sym.cons [sym, dat]
+          formatted <- funcallPrimitiveUnchecked Sym.prin1ToString [dat']
+          formatRes <- nonLocalExitCheck'
+          case formatRes of
+            FuncallExitSignal{} -> do
+              nonLocalExitClear'
+              Checked.throw $ mkEmacsInternalError $
+                "Failed to format Emacs error data while processing following error:" <> line <> errMsg
+            FuncallExitThrow{}  -> do
+              nonLocalExitClear'
+              Checked.throw $ mkEmacsInternalError $
+                "Failed to format Emacs error data while processing following error:" <> line <> errMsg
+            FuncallExitReturn   -> do
+              formatted' <- extractTextUtf8Unchecked formatted
+              Checked.throw $
+                mkEmacsError errMsg $
+                  pretty formatted'
+        FuncallExitThrow (tag, value) -> do
+          -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
           nonLocalExitClear'
-          Checked.throw $ mkEmacsInternalError $
-            "Failed to format Emacs error data while processing following error:" <> line <> errMsg
-        FuncallExitReturn   -> do
-          formatted' <- extractTextUtf8Unchecked formatted
-          Checked.throw $
-            mkEmacsError errMsg $
-              pretty formatted'
-    FuncallExitThrow (tag, value) -> do
-      -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
-      nonLocalExitClear'
-      Checked.throw EmacsThrow
-        { emacsThrowTag   = tag
-        , emacsThrowValue = value
-        }
+          Checked.throw EmacsThrow
+            { emacsThrowTag   = tag
+            , emacsThrowValue = value
+            }
 
 {-# INLINE checkExitAndRethrowInHaskell' #-}
 checkExitAndRethrowInHaskell'

@@ -40,7 +40,7 @@ mkStringDoc = mkTextDoc . T.pack
 {-# INLINE [0] mkStringDoc #-}
 
 {-# RULES
-"Doc packChars/packAddress" forall s .
+"Doc string literal" forall s .
    mkStringDoc (unpackCString# s) = mkLiteralDoc s
  #-}
 

@@ -41,6 +41,8 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
+import Data.ByteString.Internal qualified as BSI
+import Data.ByteString.Unsafe qualified as BSU
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Kind
@@ -53,8 +55,8 @@ import Data.Void
 import Foreign (Storable(..))
 import Foreign.C.Types
 import Foreign.Marshal.Array
-import Foreign.Ptr (castFunPtrToPtr)
-import Foreign.Ptr (nullPtr)
+import Foreign.Ptr (castFunPtrToPtr, nullPtr, castPtr)
+import GHC.ForeignPtr
 import Prettyprinter
 
 import Data.Emacs.Module.Args
@@ -64,7 +66,7 @@ import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
-import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Internal
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
@@ -118,12 +120,6 @@ runEmacsM env (EmacsM action) =
 {-# INLINE liftIO' #-}
 liftIO' :: (Env -> IO a) -> EmacsM s a
 liftIO' f = EmacsM $ asks eEnv >>= liftIO . f
-
-instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => MakeEmacsRef RawValue EmacsM where
-  makeEmacsRef = pure . Value
-
-instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => MakeEmacsRef GlobalRef EmacsM where
-  makeEmacsRef = pure . Value . unGlobalRef
 
 {-# INLINABLE unpackEnumFuncallExit #-}
 unpackEnumFuncallExit
@@ -208,22 +204,20 @@ checkExitAndRethrowInHaskell' errMsg action = do
 
 {-# INLINE funcallUnchecked #-}
 funcallUnchecked
-  :: (UseSymbolName a, GetRawValue (ReifiedSymbol a))
-  => SymbolName a -> [RawValue] -> EmacsM s RawValue
+  :: SymbolName -> [RawValue] -> EmacsM s RawValue
 funcallUnchecked name args = do
   res <- liftIO' $ \env -> do
-    fun <- reifySymbol env name
+    fun <- reifySymbolRaw env name
     withArrayLen args $ \n args' ->
       Raw.funcall env (getRawValue fun) (fromIntegral n) (mkNonNullPtr args')
   pure res
 
 {-# INLINE funcallPrimitiveUnchecked #-}
 funcallPrimitiveUnchecked
-  :: (UseSymbolName a, GetRawValue (ReifiedSymbol a))
-  => SymbolName a -> [RawValue] -> EmacsM s RawValue
+  :: SymbolName -> [RawValue] -> EmacsM s RawValue
 funcallPrimitiveUnchecked name args =
   liftIO' $ \env -> do
-    fun <- reifySymbol env name
+    fun <- reifySymbolRaw env name
     withArrayLen args $ \n args' ->
       Raw.funcallPrimitive env (getRawValue fun) (fromIntegral n) (mkNonNullPtr args')
 
@@ -244,21 +238,22 @@ extractStringUnchecked
 extractStringUnchecked x =
   liftIO' $ \env ->
     allocaNonNull $ \pSize -> do
-      res  <- Raw.copyStringContents env x nullPtr pSize
+      res <- Raw.copyStringContents env x nullPtr pSize
       unless (Raw.isTruthy res) $
         -- Raw.nonLocalExitClear env
         Checked.throw $ mkEmacsInternalError
           "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
       size <- fromIntegral <$> peek (unNonNullPtr pSize)
-      allocaBytesNonNull size $ \pStr -> do
-        copyPerformed <- Raw.copyStringContents env x (unNonNullPtr pStr) pSize
-        if Raw.isTruthy copyPerformed
-        then
-          -- Should subtract 1 from size to avoid NULL terminator at the end.
-          BS.packCStringLen (unNonNullPtr pStr, size - 1)
-        else do
-          Raw.nonLocalExitClear env
-          Checked.throw $ mkEmacsInternalError "Failed to unpack string"
+      fp   <- BSI.mallocByteString size
+      copyPerformed <- unsafeWithForeignPtr fp $ \ptr ->
+        Raw.copyStringContents env x (castPtr ptr) pSize
+      if Raw.isTruthy copyPerformed
+      then
+        -- Should subtract 1 from size to avoid NULL terminator at the end.
+        pure $ BSI.BS fp (size - 1)
+      else do
+        Raw.nonLocalExitClear env
+        Checked.throw $ mkEmacsInternalError "Failed to unpack string"
 
 instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => MonadEmacs EmacsM where
 
@@ -268,12 +263,11 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
   nonLocalExitCheck = nonLocalExitCheck'
 
   {-# INLINE nonLocalExitGet #-}
-  nonLocalExitGet = do
-    z <- nonLocalExitGet'
-    for z $ \(x, y) -> (,) <$> makeEmacsRef x <*> makeEmacsRef y
+  nonLocalExitGet =
+    coerce nonLocalExitGet'
 
   nonLocalExitSignal sym errData = do
-    errData' <- funcallPrimitiveUnchecked (mkSymbolNameUnsafe# "list"#) (map getRawValue errData)
+    errData' <- funcallPrimitiveUnchecked Sym.list (map getRawValue errData)
     liftIO' $ \env -> Raw.nonLocalExitSignal env (getRawValue sym) errData'
 
   {-# INLINE nonLocalExitThrow #-}
@@ -299,14 +293,13 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
     -> Doc.Doc
     -> EmacsM s (Value s)
   makeFunction emacsFun doc =
-    makeEmacsRef =<<
     checkExitAndRethrowInHaskell' "makeFunction failed"
       (liftIO' $ \env ->
         Doc.useDocAsCString doc $ \docs' -> do
           (implementationPtr :: RawFunction ()) <- exportToEmacs implementation
           func <- Raw.makeFunction env minArity maxArity implementationPtr docs' (castFunPtrToPtr (unRawFunction implementationPtr))
           Raw.setFunctionFinalizer env func freeHaskellFunPtrWrapped
-          pure func)
+          pure $ Value func)
     where
       (minArity, maxArity) = arities (Proxy @req) (Proxy @opt) (Proxy @rest)
 
@@ -316,35 +309,35 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
           Exception.handle (reportAnyErrorToEmacs env) $
             Checked.handle (reportEmacsThrowToEmacs env) $ do
               runEmacsM env $ do
-                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr makeEmacsRef emacsFun
+                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr (pure . Value) emacsFun
                 pure $! unValue v
 
   {-# INLINE funcall #-}
   funcall
-    :: (WithCallStack, Pretty a, UseSymbolName a)
-    => SymbolName a
+    :: WithCallStack
+    => SymbolName
     -> [EmacsRef EmacsM s]
     -> EmacsM s (EmacsRef EmacsM s)
   funcall name args =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' ("funcall" <+> squotes (pretty name) <+> "failed")
       (funcallUnchecked name (map getRawValue args))
 
   {-# INLINE funcallPrimitive #-}
   funcallPrimitive
-    :: (WithCallStack, Pretty a, UseSymbolName a)
-    => SymbolName a
+    :: WithCallStack
+    => SymbolName
     -> [EmacsRef EmacsM s]
     -> EmacsM s (EmacsRef EmacsM s)
   funcallPrimitive name args =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' ("funcall primitive" <+> squotes (pretty name) <+> "failed")
       (funcallPrimitiveUnchecked name (map getRawValue args))
 
   {-# INLINE funcallPrimitive_ #-}
   funcallPrimitive_
-    :: (WithCallStack, Pretty a, UseSymbolName a)
-    => SymbolName a
+    :: WithCallStack
+    => SymbolName
     -> [EmacsRef EmacsM s]
     -> EmacsM s ()
   funcallPrimitive_ name args =
@@ -354,11 +347,11 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE intern #-}
   intern sym =
-    makeEmacsRef =<< liftIO' (\env -> reifySymbol env sym)
+    liftIO' $ \env -> reifySymbol env sym coerce coerce
 
   {-# INLINE typeOf #-}
   typeOf x =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' "typeOf failed"
       (typeOfUnchecked x)
 
@@ -380,7 +373,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE makeWideInteger #-}
   makeWideInteger x =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' ("makeWideInteger of" <+> pretty x <+> "failed")
       (liftIO' $ \env -> Raw.makeInteger env (CIntMax x))
 
@@ -391,7 +384,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE makeDouble #-}
   makeDouble x =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' ("makeDouble" <+> pretty x <+> "failed")
       (liftIO' $ \env -> Raw.makeFloat env (CDouble x))
 
@@ -402,11 +395,11 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE makeString #-}
   makeString x =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' "makeString failed"
       (liftIO' $ \env ->
-        BS.useAsCString x $ \pStr ->
-          Raw.makeString env pStr (fromIntegral (BS.length x)))
+        BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->
+          Raw.makeString env pStr (fromIntegral len))
 
   {-# INLINE extractUserPtr #-}
   extractUserPtr x =
@@ -415,7 +408,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE makeUserPtr #-}
   makeUserPtr finaliser ptr =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' "makeUserPtr failed"
       (liftIO' $ \env -> Raw.makeUserPtr env finaliser ptr)
 
@@ -436,7 +429,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
 
   {-# INLINE vecGet #-}
   vecGet vec n =
-    makeEmacsRef =<<
+    coerce $
     checkExitAndRethrowInHaskell' "vecGet failed"
       (liftIO' $ \env -> Raw.vecGet env (getRawValue vec) (fromIntegral n))
 

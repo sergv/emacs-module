@@ -18,7 +18,6 @@
 module Emacs.Module.Monad.Class
   ( EmacsFunction
   , MonadEmacs(..)
-  , MakeEmacsRef(..)
   ) where
 
 import Control.Exception.Safe.Checked (Throws)
@@ -26,14 +25,11 @@ import Data.ByteString qualified as BS
 import Data.Int
 import Data.Kind
 import Foreign.Ptr (Ptr)
-import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.GetRawValue
-import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName
 import Emacs.Module.Assert
 import Emacs.Module.Errors
@@ -42,18 +38,11 @@ import Emacs.Module.Errors
 type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
   = EmacsArgs req opt rest (EmacsRef m s) -> m s (EmacsRef m s)
 
--- | Type class for injecting things into 'EmacsRef' values that can be managed my monad @m@.
-class MakeEmacsRef a (m :: k -> Type -> Type) where
-  makeEmacsRef
-    :: WithCallStack
-    => a
-    -> m s (EmacsRef m s)
-
 -- | A mtl-style typeclass for interacting with Emacs. Typeclass functions
 -- are mostly direct translations of emacs interface provided by 'emacs-module.h'.
 --
 -- For more functions please refer to "Emacs.Module.Functions" module.
-class (forall s. Monad (m s), MakeEmacsRef RawValue m, MakeEmacsRef GlobalRef m) => MonadEmacs (m :: k -> Type -> Type) where
+class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
 
   -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
   -- after 'm' finishes its execution.
@@ -104,31 +93,31 @@ class (forall s. Monad (m s), MakeEmacsRef RawValue m, MakeEmacsRef GlobalRef m)
 
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
-    :: (WithCallStack, Pretty a, UseSymbolName a, GetRawValue (ReifiedSymbol a))
-    => SymbolName a    -- ^ Function name
+    :: WithCallStack
+    => SymbolName      -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function. The function should be simple and
   -- must not call back into Haskell.
   funcallPrimitive
-    :: (WithCallStack, Pretty a, UseSymbolName a)
-    => SymbolName a    -- ^ Function name
+    :: WithCallStack
+    => SymbolName      -- ^ Function name
     -> [EmacsRef m s]  -- ^ Arguments
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function and ignore its result. The function
   -- should be simple and must not call back into Haskell.
   funcallPrimitive_
-    :: (WithCallStack, Pretty a, UseSymbolName a)
-    => SymbolName a   -- ^ Function name
+    :: WithCallStack
+    => SymbolName     -- ^ Function name
     -> [EmacsRef m s] -- ^ Arguments
     -> m s ()
 
   -- | Convert a string to an Emacs symbol.
   intern
-    :: (WithCallStack, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
-    => SymbolName a
+    :: WithCallStack
+    => SymbolName
     -> m s (EmacsRef m s)
 
   -- | Get type of an Emacs value as an Emacs symbol.

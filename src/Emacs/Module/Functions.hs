@@ -68,7 +68,6 @@ import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
 import Data.Vector.Unboxed qualified as U
 import Foreign.StablePtr
-import Prettyprinter
 
 import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName
@@ -76,16 +75,11 @@ import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
 
--- | Just aggregates various instances that various SymbolNames (e.g.
--- bouth dynamic and static) can be expected to satisfy.
-class (UseSymbolName a, Pretty a, MakeEmacsRef (ReifiedSymbol a) m) => EmacsSymbolName m a
-instance (UseSymbolName a, Pretty a, MakeEmacsRef (ReifiedSymbol a) m) => EmacsSymbolName m a
-
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
 bindFunction
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
-  => SymbolName a -- ^ Name
+  :: (WithCallStack, MonadEmacs m)
+  => SymbolName   -- ^ Name
   -> EmacsRef m s -- ^ Function value
   -> m s ()
 bindFunction name def = do
@@ -96,8 +90,8 @@ bindFunction name def = do
 -- | Signal to Emacs that certain feature is being provided. Returns provided
 -- symbol.
 provide
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
-  => SymbolName a -- ^ Feature to provide
+  :: (WithCallStack, MonadEmacs m)
+  => SymbolName -- ^ Feature to provide
   -> m s ()
 provide sym = do
   sym' <- intern sym
@@ -358,23 +352,23 @@ unfoldEmacsListWith f accum = do
 {-# INLINE addFaceProp #-}
 -- | Add new 'face property to a string.
 addFaceProp
-  :: (WithCallStack, MonadEmacs m, Pretty a, UseSymbolName a, MakeEmacsRef (ReifiedSymbol a) m)
+  :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s       -- ^ String to add face to
-  -> SymbolName a       -- ^ Face name
+  -> SymbolName         -- ^ Face name
   -> m s (EmacsRef m s) -- ^ Propertised string
 addFaceProp str face = do
   face' <- intern face
-  propertize str [(SomeSymbolName Sym.face, face')]
+  propertize str [(Sym.face, face')]
 
 {-# INLINE propertize #-}
 -- | Add new 'face property to a string.
 propertize
   :: (WithCallStack, MonadEmacs m)
-  => EmacsRef m s                                         -- ^ String to add properties to
-  -> [(SomeSymbolName (EmacsSymbolName m), EmacsRef m s)] -- ^ Properties
-  -> m s (EmacsRef m s)                                   -- ^ Propertised string
+  => EmacsRef m s                 -- ^ String to add properties to
+  -> [(SymbolName, EmacsRef m s)] -- ^ Properties
+  -> m s (EmacsRef m s)           -- ^ Propertised string
 propertize str props = do
-  props' <- traverse (\(SomeSymbolName name, val) -> (\name' -> [name', val]) <$> intern name) props
+  props' <- traverse (\(name, val) -> (\name' -> [name', val]) <$> intern name) props
   funcallPrimitive Sym.propertize (str : concat props')
 
 {-# INLINE concat2 #-}

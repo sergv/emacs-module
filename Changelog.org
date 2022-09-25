@@ -19,6 +19,8 @@
 
 - ~produceRef~ and ~EmacsReturn~ are gone - vanilla ~pure~ and ~EmacsRef~ are enough
 
+- Symbol names got IsString instance and can be defined as string constants
+
 * 0.1.1.1
 
 - Fix build with GHC 9.0+

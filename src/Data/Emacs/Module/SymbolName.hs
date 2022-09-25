@@ -10,12 +10,11 @@
 
 module Data.Emacs.Module.SymbolName
   ( SymbolName
-  , SomeSymbolName(..)
   , mkSymbolName
-  , mkSymbolNameUnsafe#
+  , mkSymbolNameString
   , mkSymbolNameShortByteString
-
-  , UseSymbolName(..)
+  , mkSymbolNameUnsafe
+  , reifySymbol
   ) where
 
 import Data.Emacs.Module.SymbolName.Internal

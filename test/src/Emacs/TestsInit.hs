@@ -12,10 +12,11 @@
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeFamilies               #-}
+
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Emacs.TestsInit () where
 
@@ -27,7 +28,6 @@ import Foreign.C
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Runtime (Runtime)
 import Data.Emacs.Module.Runtime qualified as Runtime
-import Data.Emacs.Module.SymbolName
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module
 import Emacs.Module.Assert
@@ -53,17 +53,17 @@ initialise'
   :: (WithCallStack, Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError)
   => EmacsM s Bool
 initialise' = do
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-apply2"#) =<<
+  bindFunction "haskell-emacs-module-tests-apply2" =<<
     makeFunction apply2 "Apply a function twice."
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-add"#) =<<
+  bindFunction "haskell-emacs-module-tests-add" =<<
     makeFunction add "Add two numbers."
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-get-rest"#) =<<
+  bindFunction "haskell-emacs-module-tests-get-rest" =<<
     makeFunction getRest "Just return the &rest argument."
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-append-lots-of-strings"#) =<<
+  bindFunction "haskell-emacs-module-tests-append-lots-of-strings" =<<
     makeFunction appendLotsOfStrings "Append foo string N times to itself."
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-append-lots-of-vectors"#) =<<
+  bindFunction "haskell-emacs-module-tests-append-lots-of-vectors" =<<
     makeFunction appendLotsOfVectors "Append [1 2 3] vector N times to itself."
-  bindFunction (mkSymbolNameUnsafe# "haskell-emacs-module-tests-replicate"#) =<<
+  bindFunction "haskell-emacs-module-tests-replicate" =<<
     makeFunction emacsReplicate "Replicate an item N times"
   pure True
 
@@ -85,7 +85,7 @@ getRest
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'True s m
 getRest (R _req (Rest rest)) =
-  funcall (mkSymbolNameUnsafe# "vector"#) rest
+  funcall Sym.vector rest
 
 appendLotsOfStrings
   :: forall m s. (WithCallStack, MonadEmacs m, MonadMask (m s))
@@ -134,7 +134,7 @@ concat2' (x, xStr) (y, yStr) =
     go = do
       x' <- x
       y' <- y
-      _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
+      _ <- funcallPrimitive "garbage-collect" []
       concat2 x' y'
 
 vconcat2'
@@ -148,7 +148,7 @@ vconcat2' (x, xs) (y, ys) =
     go = do
       x' <- x
       y' <- y
-      _ <- funcallPrimitive (mkSymbolNameUnsafe# "garbage-collect"#) []
+      _ <- funcallPrimitive "garbage-collect" []
       vconcat2 x' y'
 
 appendTree :: (a -> a -> a) -> [a] -> Maybe a

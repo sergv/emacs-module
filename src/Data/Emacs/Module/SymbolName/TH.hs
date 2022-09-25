@@ -10,28 +10,27 @@
 {-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
-module Data.Emacs.Module.SymbolName.TH (esym) where
+module Data.Emacs.Module.SymbolName.TH
+  ( cacheSym
+  ) where
 
-import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as C8
+import Data.IORef
 import Language.Haskell.TH
-import Language.Haskell.TH.Quote
+import System.IO.Unsafe
 
+import Data.Emacs.Module.Raw.Env.Internal (Env)
+import Data.Emacs.Module.Raw.Value (GlobalRef)
 import Data.Emacs.Module.SymbolName.Internal
 
--- | Quasi-quoter for 'SymbolName'. Avoids some runtime overhead of
--- creating a 'SymbolName', but in other respects is absolutely equivalent
--- to 'mkSymbolName'.
---
--- > [esym|foo|] == mkSymbolName "foo"
--- True
-esym :: QuasiQuoter
-esym = QuasiQuoter
-  { quoteExp  = mkESym
-  , quotePat  = const $ fail "Only defined for values"
-  , quoteType = const $ fail "Only defined for values"
-  , quoteDec  = const $ fail "Only defined for values"
-  }
-
-mkESym :: String -> ExpQ
-mkESym s = [e| mkSymbolNameUnsafe# $(litE (stringPrimL (BS.unpack (C8.pack s)))) |]
+cacheSym :: String -> Q [Dec]
+cacheSym sym = do
+  ref      <- newName ("ref_" ++ sym)
+  noinline <- pragInlD ref NoInline FunLike AllPhases
+  refSig   <- sigD ref [t| IORef (Env -> IO GlobalRef) |]
+  refDecl  <- valD (varP ref) (normalB [e| unsafePerformIO (mkSymbolNameCache $sym') |]) []
+  symSig   <- sigD (mkName sym) [t| SymbolName |]
+  symDecl  <- valD (varP (mkName sym)) (normalB [e| CachedSymbol $(varE ref) $sym' |]) []
+  pure [noinline, refSig, refDecl, symSig, symDecl]
+  where
+    sym' :: ExpQ
+    sym' = [e| mkSymbolNameString $(litE (stringL sym)) |]

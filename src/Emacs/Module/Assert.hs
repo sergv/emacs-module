@@ -22,7 +22,7 @@ import GHC.Stack (HasCallStack)
 #endif
 
 -- | Call stacks for all emacs-related functions in Haskell.
--- Will be disabled unless this package was build with 'call-stacks'
+-- Will be disabled unless this package was built with 'call-stacks'
 -- flag enabled.
 #ifdef CALL_STACKS
 type WithCallStack = (HasCallStack :: Constraint)

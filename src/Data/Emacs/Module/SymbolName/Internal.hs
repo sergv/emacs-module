@@ -14,6 +14,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE PolyKinds                  #-}
@@ -29,32 +30,33 @@
 module Data.Emacs.Module.SymbolName.Internal
   ( Static(..)
   , Dynamic(..)
-  , Cached(..)
   , SymbolName(..)
-  , SomeSymbolName(..)
-  , cacheSymbolName
   , mkSymbolName
-  , mkSymbolNameUnsafe#
+  , mkSymbolNameString
   , mkSymbolNameShortByteString
+  , mkSymbolNameUnsafe
 
-  , UseSymbolName(..)
+  , mkSymbolNameCache
+  , reifySymbolRaw
+  , reifySymbol
   ) where
 
-import Data.ByteString.Char8 qualified as C8
 import Data.ByteString.Internal qualified as BS
 import Data.ByteString.Short qualified as BSS
+import Data.Coerce
 import Data.IORef
-import Data.Kind
+import Data.String
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
+import Data.Text.Foreign qualified as T
 import Foreign.C.Types
-import GHC.Exts (Addr#, byteArrayContents#, proxy#)
+import GHC.Exts (Addr#, unpackCString#)
 import GHC.Ptr
-import GHC.TypeLits
 import Prettyprinter
 import System.IO.Unsafe
 
-import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
@@ -66,89 +68,78 @@ import Data.Emacs.Module.Raw.Value
 newtype Static = Static { unStatic :: Ptr CChar }
   deriving (Eq, Ord, Show)
 
-newtype Dynamic = Dynamic { unDynamic :: BSS.ShortByteString }
-  deriving (Eq, Ord, Show)
+newtype Dynamic = Dynamic { unDynamic :: Text }
+  deriving (Eq, Ord, Show, Pretty)
 
-newtype SymbolName a = SymbolName a
-  deriving (Eq, Ord, Show, Pretty, Functor, Foldable, Traversable)
-
-instance Pretty Static where
-  pretty (Static (Ptr addr))
-    = pretty
-    $ TE.decodeUtf8With TE.lenientDecode
-    $ BS.unsafePackLiteral addr
-
-instance Pretty Dynamic where
-  pretty (Dynamic str)
-    = pretty
-    $ TE.decodeUtf8With TE.lenientDecode
-    $ C8.init
-    $ BSS.fromShort str
-
-newtype Cached (name :: Symbol) = Cached { unCached :: IORef (Env -> IO GlobalRef) }
+data SymbolName
+  = StaticSymbol  {-# UNPACK #-} !(Ptr CChar)
+  | DynamicSymbol {-# UNPACK #-} !Text
+  | CachedSymbol  (IORef (Env -> IO GlobalRef)) SymbolName
   deriving (Eq)
 
-instance KnownSymbol name => Pretty (Cached name) where
-  pretty _ = pretty $ symbolVal' (proxy# @name)
+instance Pretty SymbolName where
+  pretty = \case
+    StaticSymbol (Ptr addr)
+      -> pretty $ TE.decodeUtf8With TE.lenientDecode $ BS.unsafePackLiteral addr
+    DynamicSymbol str  -> pretty str
+    CachedSymbol _ sym -> pretty sym
 
-cacheSymbolName :: forall sym. SymbolName Static -> SymbolName (Cached sym)
-cacheSymbolName = unsafePerformIO . go
+-- {-# INLINE mkSymbolNameCache #-}
+mkSymbolNameCache :: SymbolName -> IO (IORef (Env -> IO GlobalRef))
+mkSymbolNameCache = go
   where
-    go :: SymbolName Static -> IO (SymbolName (Cached sym))
-    go name = do
-      res <- unsafeFixIO $ \ref ->
+    go :: SymbolName -> IO (IORef (Env -> IO GlobalRef))
+    go name =
+      unsafeFixIO $ \ref ->
         newIORef $ \env -> do
-          global <- Raw.makeGlobalRef env =<< reifySymbol env name
+          global <- Raw.makeGlobalRef env =<< reifySymbolRaw env name
           writeIORef ref $ \_env -> pure global
           pure global
-      pure $ SymbolName $ Cached res
-
-{-# INLINE mkSymbolName #-}
-mkSymbolName :: C8.ByteString -> SymbolName Dynamic
-mkSymbolName = mkSymbolNameShortByteString . BSS.toShort
-
-data SomeSymbolName (c :: Type -> Constraint) = forall a. c a => SomeSymbolName (SymbolName a)
 
 -- | Should be applied to unboxed string literals like this
 --
 -- @
--- mkSymbolNameUnsafe# "foo"#
+-- mkSymbolNameUnsafe "foo"#
 -- @
 --
 -- Can be safely applied to non-literals (e.g. arbitrary pointers) if
 -- it's guaranteed that address points to a null-terminated strings.
 -- Otherwise behaviour is undefined.
-{-# INLINE mkSymbolNameUnsafe# #-}
-mkSymbolNameUnsafe# :: Addr# -> SymbolName Static
-mkSymbolNameUnsafe# addr = SymbolName (Static (Ptr addr))
+{-# INLINE mkSymbolNameUnsafe #-}
+mkSymbolNameUnsafe :: Addr# -> SymbolName
+mkSymbolNameUnsafe addr = StaticSymbol (Ptr addr)
+
+{-# INLINE mkSymbolName #-}
+mkSymbolName :: Text -> SymbolName
+mkSymbolName = DynamicSymbol
 
 {-# INLINE mkSymbolNameShortByteString #-}
-mkSymbolNameShortByteString :: BSS.ShortByteString -> SymbolName Dynamic
-mkSymbolNameShortByteString str
-  | not (BSS.null str) && BSS.last str == 0
-  = SymbolName $ Dynamic str
-  | otherwise
-  = SymbolName $ Dynamic $ str `BSS.snoc` 0
+mkSymbolNameShortByteString :: BSS.ShortByteString -> SymbolName
+mkSymbolNameShortByteString = DynamicSymbol . TE.decodeUtf8With TE.lenientDecode . BSS.fromShort
 
-class GetRawValue (ReifiedSymbol a) => UseSymbolName a where
-  type ReifiedSymbol a :: Type
-  reifySymbol :: Env -> SymbolName a -> IO (ReifiedSymbol a)
+{-# INLINE [0] mkSymbolNameString #-}
+mkSymbolNameString :: String -> SymbolName
+mkSymbolNameString = mkSymbolName . T.pack
 
-instance UseSymbolName Static where
-  type ReifiedSymbol Static = RawValue
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Static addr)) =
-    Raw.intern env addr
+instance IsString SymbolName where
+  {-# INLINE fromString #-}
+  fromString = mkSymbolNameString
 
-instance UseSymbolName Dynamic where
-  type ReifiedSymbol Dynamic = RawValue
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Dynamic (BSS.SBS arr))) =
-    -- I like to live dangerously...
-    Raw.intern env (Ptr (byteArrayContents# arr))
+{-# RULES
+"SymbolName string literal" forall s .
+   mkSymbolNameString (unpackCString# s) = mkSymbolNameUnsafe s
+ #-}
 
-instance KnownSymbol name => UseSymbolName (Cached name) where
-  type ReifiedSymbol (Cached _) = GlobalRef
-  {-# INLINE reifySymbol #-}
-  reifySymbol env (SymbolName (Cached ref)) =
-    ($ env) =<< readIORef ref
+{-# INLINE reifySymbolRaw #-}
+reifySymbolRaw :: Env -> SymbolName -> IO RawValue
+reifySymbolRaw env sym = reifySymbol env sym id coerce
+
+{-# INLINE reifySymbol #-}
+reifySymbol :: Env -> SymbolName -> (RawValue -> a) -> (GlobalRef -> a) -> IO a
+reifySymbol env sym f g = case sym of
+  StaticSymbol addr ->
+    f <$> Raw.intern env addr
+  DynamicSymbol str ->
+    f <$> T.withCString str (Raw.intern env)
+  CachedSymbol ref _ ->
+    g <$> (($ env) =<< readIORef ref)

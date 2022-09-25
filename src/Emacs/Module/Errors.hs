@@ -56,7 +56,7 @@ import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.Raw.Value
-import Data.Emacs.Module.SymbolName
+import Data.Emacs.Module.SymbolName.Internal
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 
@@ -213,8 +213,8 @@ reportAllErrorsToEmacs env resultOnErr x
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
-  errSym  <- reifySymbol env Sym.error
-  listSym <- reifySymbol env Sym.list
+  errSym  <- reifySymbolRaw env Sym.error
+  listSym <- reifySymbolRaw env Sym.list
   withTextAsCString0AndLen (format err) $ \str len -> do
     str' <- Raw.makeString env str (fromIntegral len)
     alloca $ \argsPtr -> do
@@ -223,7 +223,7 @@ report format env err = do
       -- The 'nonLocalExitSignal' function does not overwrite pending
       -- signals, so it's ok to use it here without checking whether an
       -- error is already going on.
-      Raw.nonLocalExitSignal env (getRawValue errSym) errData
+      Raw.nonLocalExitSignal env errSym errData
 
 withTextAsCString0AndLen :: Text -> (CString -> Int -> IO a) -> IO a
 withTextAsCString0AndLen str f =
@@ -233,7 +233,7 @@ withTextAsCString0AndLen str f =
 
 mkNil :: WithCallStack => Env -> IO RawValue
 mkNil env =
-  getRawValue <$> reifySymbol env Sym.nil
+  reifySymbolRaw env Sym.nil
 
 render :: Pretty a => a -> Text
 render = render' . pretty

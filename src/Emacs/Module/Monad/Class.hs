@@ -24,11 +24,11 @@ import Control.Exception.Safe.Checked (Throws)
 import Data.ByteString qualified as BS
 import Data.Int
 import Data.Kind
+import Foreign.ForeignPtr (FinalizerPtr)
 import Foreign.Ptr (Ptr)
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Doc qualified as Doc
-import Data.Emacs.Module.Env (UserPtrFinaliser)
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.SymbolName
 import Emacs.Module.Assert
@@ -163,7 +163,7 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
   -- | Pack a user pointer into an Emacs value.
   makeUserPtr
     :: WithCallStack
-    => UserPtrFinaliser a -- ^ Finalisation action that will be executed when user pointer gets garbage-collected by Emacs.
+    => FinalizerPtr a -- ^ Finalisation action that will be executed when user pointer gets garbage-collected by Emacs.
     -> Ptr a
     -> m s (EmacsRef m s)
 
@@ -172,11 +172,11 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
 
   -- | Extract a finaliser from an user_ptr.
   extractUserPtrFinaliser
-    :: WithCallStack => EmacsRef m s -> m s (UserPtrFinaliser a)
+    :: WithCallStack => EmacsRef m s -> m s (FinalizerPtr a)
 
   -- | Assign new finaliser into an user_ptr.
   assignUserPtrFinaliser
-    :: WithCallStack => EmacsRef m s -> UserPtrFinaliser a -> m s ()
+    :: WithCallStack => EmacsRef m s -> FinalizerPtr a -> m s ()
 
   -- | Extract an element from an Emacs vector.
   vecGet :: WithCallStack => EmacsRef m s -> Int -> m s (EmacsRef m s)

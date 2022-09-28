@@ -18,8 +18,6 @@ module Data.Emacs.Module.Env
 
   , -- * Wrappers around struct emacs_env fields
     EnumFuncallExit(..)
-  , UserPtrFinaliserType
-  , UserPtrFinaliser
   , isValidEnv
 
   , makeGlobalRef
@@ -64,10 +62,12 @@ module Data.Emacs.Module.Env
   , freeStablePtrFinaliser
   ) where
 
+import Foreign.ForeignPtr (FinalizerPtr)
+
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Env
 
 -- | Pass to 'makeUserPtr' so that Emacs will free the Haskell's stable
 -- pointer when the corresponding elisp value goes out of scope.
-foreign import ccall "& hs_free_stable_ptr" freeStablePtrFinaliser :: UserPtrFinaliser a
+foreign import ccall "& hs_free_stable_ptr" freeStablePtrFinaliser :: FinalizerPtr a

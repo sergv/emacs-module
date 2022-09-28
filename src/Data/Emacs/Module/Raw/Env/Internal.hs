@@ -18,7 +18,6 @@ module Data.Emacs.Module.Raw.Env.Internal
   , RawFunctionType
   , RawFunction(..)
 
-  , FunPtrReleaserType
   , freeHaskellFunPtrWrapped
   ) where
 
@@ -53,8 +52,6 @@ foreign import ccall "wrapper"
 newtype RawFunction a = RawFunction { unRawFunction :: FunPtr (RawFunctionType a) }
   deriving (Eq, Ord, Show)
 
-type FunPtrReleaserType a = FunPtr a -> IO ()
-
 -- This function is defined in base. See what 'freeHaskellFunPtr' for a start.
 foreign import ccall unsafe "&freeHaskellFunctionPtr"
-  freeHaskellFunPtrWrapped :: FunPtr (FunPtrReleaserType a)
+  freeHaskellFunPtrWrapped :: FinalizerPtr a

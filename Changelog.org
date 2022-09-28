@@ -21,6 +21,8 @@
 
 - Symbol names got IsString instance and can be defined as string constants
 
+- Removed ~UserPtrFinaliser~ and ~UserPtrFinaliserType~. Use ~Foreign.ForeignPtr.FinalizerPtr~ instead
+
 * 0.1.1.1
 
 - Fix build with GHC 9.0+

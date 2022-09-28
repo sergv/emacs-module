@@ -17,8 +17,6 @@
 
 module Data.Emacs.Module.Raw.Env
   ( EnumFuncallExit(..)
-  , UserPtrFinaliserType
-  , UserPtrFinaliser
   , CBoolean
   , isTruthy
   , isValidEnv
@@ -75,9 +73,6 @@ import Data.Emacs.Module.NonNullPtr.Internal
 #include <emacs-module.h>
 
 newtype EnumFuncallExit = EnumFuncallExit { unEnumFuncallExit :: CInt }
-
-type UserPtrFinaliserType a = Ptr a -> IO ()
-type UserPtrFinaliser a = FunPtr (UserPtrFinaliserType a)
 
 -- | A wrapper around C value that denotes true or false.
 newtype CBoolean = CBoolean (#type bool)
@@ -410,13 +405,13 @@ makeString = makeStringTH
 
 $(wrapEmacsFunc "makeUserPtrTH" Unsafe
    [e| (#peek emacs_env, make_user_ptr) |]
-   [t| forall a. Env -> UserPtrFinaliser a -> Ptr a -> IO RawValue |])
+   [t| forall a. Env -> FinalizerPtr a -> Ptr a -> IO RawValue |])
 
 {-# INLINE makeUserPtr #-}
 makeUserPtr
   :: forall m a. MonadIO m
   => Env
-  -> UserPtrFinaliser a
+  -> FinalizerPtr a
   -> Ptr a
   -> m RawValue
 makeUserPtr = makeUserPtrTH
@@ -451,27 +446,27 @@ setUserPtr = setUserPtrTH
 
 $(wrapEmacsFunc "getUserFinaliserTH" Unsafe
    [e| (#peek emacs_env, get_user_finalizer) |]
-   [t| forall a. Env -> RawValue -> IO (UserPtrFinaliser a) |])
+   [t| forall a. Env -> RawValue -> IO (FinalizerPtr a) |])
 
 {-# INLINE getUserFinaliser #-}
 getUserFinaliser
   :: MonadIO m
   => Env
   -> RawValue
-  -> m (UserPtrFinaliser a)
+  -> m (FinalizerPtr a)
 getUserFinaliser = getUserFinaliserTH
 
 
 $(wrapEmacsFunc "setUserFinaliserTH" Unsafe
    [e| (#peek emacs_env, set_user_finalizer) |]
-   [t| forall a. Env -> RawValue -> UserPtrFinaliser a -> IO () |])
+   [t| forall a. Env -> RawValue -> FinalizerPtr a -> IO () |])
 
 {-# INLINE setUserFinaliser #-}
 setUserFinaliser
   :: MonadIO m
   => Env
   -> RawValue
-  -> UserPtrFinaliser a
+  -> FinalizerPtr a
   -> m ()
 setUserFinaliser = setUserFinaliserTH
 
@@ -519,14 +514,14 @@ vecSize = vecSizeTH
 
 $(wrapEmacsFunc "setFunctionFinalizerTH" Unsafe
    [e| (#peek emacs_env, set_function_finalizer) |]
-   [t| forall a. Env -> RawValue -> FunPtr (FunPtrReleaserType a) -> IO () |])
+   [t| forall a. Env -> RawValue -> FinalizerPtr a -> IO () |])
 
 {-# INLINE setFunctionFinalizer #-}
 setFunctionFinalizer
   :: MonadIO m
   => Env
   -> RawValue
-  -> FunPtr (FunPtrReleaserType a)
+  -> FinalizerPtr a
   -> m ()
 setFunctionFinalizer = setFunctionFinalizerTH
 

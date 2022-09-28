@@ -82,10 +82,6 @@ module Emacs.Module
   , EmacsInternalError(..)
   , reportAllErrorsToEmacs
 
-    -- ** Other types
-  , Raw.UserPtrFinaliserType
-  , Raw.UserPtrFinaliser
-
     -- * Reexports
   , module Emacs.Module.Functions
   , module Data.Emacs.Module.Value
@@ -100,7 +96,6 @@ import Control.Exception.Safe.Checked (MonadThrow, Throws)
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (Env)
-import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Value
 import Emacs.Module.Errors
 import Emacs.Module.Functions

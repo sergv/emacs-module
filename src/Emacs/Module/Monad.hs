@@ -309,8 +309,7 @@ instance (Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError) => Mo
           Exception.handle (reportAnyErrorToEmacs env) $
             Checked.handle (reportEmacsThrowToEmacs env) $ do
               runEmacsM env $ do
-                v <- supplyEmacsArgs (fromIntegral nargs) argsPtr (pure . Value) emacsFun
-                pure $! unValue v
+                coerce (supplyEmacsArgs (fromIntegral nargs) argsPtr (pure . Value) emacsFun)
 
   {-# INLINE funcall #-}
   funcall

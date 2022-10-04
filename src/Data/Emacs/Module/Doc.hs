@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MagicHash           #-}
 
 module Data.Emacs.Module.Doc
@@ -29,6 +30,11 @@ import GHC.Exts
 data Doc
   = StaticDoc Addr#
   | DynamicDoc !Text
+
+instance Show Doc where
+  show = \case
+    DynamicDoc x   -> show x
+    StaticDoc addr -> show (unpackCString# addr)
 
 instance IsString Doc where
   {-# INLINE fromString #-}

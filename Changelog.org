@@ -1,6 +1,9 @@
 * 0.2
 
+- Major rework of everything
+
 - Bump minimum required Emacs version to 28
+
 - Bump minimum required ~base~ version to 4.14 - minimum supported GHC is 8.10
 
 - Symbols can be either statically known or dynamically known. This is mostly an optimization that doesn’t affect symbol use but client code may require updating. Statically known symbol are just pointers to statically allocated (by GHC) bytes and the pointers are simply passed to Emacs when to create symbols.
@@ -22,6 +25,10 @@
 - Symbol names got IsString instance and can be defined as string constants
 
 - Removed ~UserPtrFinaliser~ and ~UserPtrFinaliserType~. Use ~Foreign.ForeignPtr.FinalizerPtr~ instead
+
+- ~GlobalRef~ got removed, instead ~RawValue~ is indexed by whether it’s going to be GC’ed after returning control back to Emacs
+
+- ~funcall~ and ~funcallPrimitive~ now accept any emacs value function rather than a symbol only
 
 * 0.1.1.1
 

@@ -5,8 +5,9 @@ packages:
 -- program-options
 --   ghc-options: -g3
 
-constraints:
-  emacs-module +assertions +module-assertions
+-- constraints:
+--   emacs-module +assertions +call-stacks
 
 library-profiling: False
+library-profiling-detail: none
 debug-info: True

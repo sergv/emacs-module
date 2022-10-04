@@ -15,6 +15,7 @@ module Data.Emacs.Module.NonNullPtr
   , mkNonNullPtr
   , allocaNonNull
   , allocaBytesNonNull
+  , withPtrLenNonNull
   ) where
 
 import Data.Coerce
@@ -22,6 +23,7 @@ import Foreign
 
 import Data.Emacs.Module.NonNullPtr.Internal
 import Emacs.Module.Assert
+import Foreign.Ptr.Builder
 
 mkNonNullPtr :: WithCallStack => Ptr a -> NonNullPtr a
 #ifdef ASSERTIONS
@@ -39,3 +41,9 @@ allocaNonNull = coerce (alloca :: (Ptr a -> IO b) -> IO b)
 {-# INLINE allocaBytesNonNull #-}
 allocaBytesNonNull :: forall a b. Int -> (NonNullPtr a -> IO b) -> IO b
 allocaBytesNonNull = coerce (allocaBytes :: Int -> (Ptr a -> IO b) -> IO b)
+
+{-# INLINE withPtrLenNonNull #-}
+withPtrLenNonNull
+  :: forall a b. (WithCallStack, Storable a) => Builder a -> (Int -> NonNullPtr a -> IO b) -> IO b
+withPtrLenNonNull =
+  coerce (withPtrLen :: Builder a -> (Int -> Ptr a -> IO b) -> IO b)

@@ -88,16 +88,15 @@ module Emacs.Module
   , Env
 
     -- * Third-party reexports
-  , MonadThrow
-  , Throws
+  , MonadThrow(..)
   ) where
 
-import Control.Exception.Safe.Checked (MonadThrow, Throws)
+import Control.Monad.Catch (MonadThrow(..))
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env (Env)
 import Data.Emacs.Module.Value
 import Emacs.Module.Errors
 import Emacs.Module.Functions
-import Emacs.Module.Monad
+import Emacs.Module.Monad.Sync
 import Emacs.Module.Monad.Class

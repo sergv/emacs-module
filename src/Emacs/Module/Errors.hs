@@ -9,6 +9,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ImportQualifiedPost #-}
@@ -20,14 +21,16 @@
 module Emacs.Module.Errors
   ( EmacsThrow(..)
   , reportEmacsThrowToEmacs
-  , UserError(..)
-  , mkUserError
+  , EmacsSignal(..)
+  , reportEmacsSignalToEmacs
   , EmacsError(..)
   , mkEmacsError
   , reportErrorToEmacs
   , EmacsInternalError(..)
   , mkEmacsInternalError
   , reportInternalErrorToEmacs
+  , UserError(..)
+  , mkUserError
 
   , formatSomeException
   , reportAnyErrorToEmacs
@@ -36,12 +39,10 @@ module Emacs.Module.Errors
 
 import Control.Applicative
 import Control.Exception as Exception
-import Control.Exception.Safe.Checked (Throws)
-import Control.Exception.Safe.Checked qualified as Checked
 
 import Data.ByteString.Char8 qualified as C8
-import Data.Proxy
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Void
 import Data.Void.Unsafe
@@ -49,6 +50,7 @@ import Foreign
 import Foreign.C.String
 import GHC.Stack (CallStack, callStack, prettyCallStack)
 import Prettyprinter
+import Prettyprinter.Combinators hiding (render, ppCallStack)
 import Prettyprinter.Render.Text as PP
 
 import Data.Emacs.Module.Env qualified as Raw
@@ -65,24 +67,57 @@ import Emacs.Module.Assert
 --
 -- Unlikely to be needed when developing Emacs extensions.
 data EmacsThrow = EmacsThrow
-  { emacsThrowTag   :: !RawValue
-  , emacsThrowValue :: !RawValue
+  { emacsThrowTag    :: !(RawValue 'Regular)
+  , emacsThrowValue  :: !(RawValue 'Regular)
+  , emacsThrowOrigin :: CallStack
   }
 
 instance Show EmacsThrow where
-  showsPrec _ _ = showString "EmacsThrow"
+  showsPrec _ EmacsThrow{emacsThrowOrigin}
+    = showString "EmacsThrow\n"
+    . showString (prettyCallStack emacsThrowOrigin)
 
 instance Exception EmacsThrow
 
-reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO RawValue
+reportEmacsThrowToEmacs :: Env -> EmacsThrow -> IO (RawValue 'Unknown)
 reportEmacsThrowToEmacs env et = do
   nil <- mkNil env
   reportEmacsThrowToEmacs' env et
   pure nil
 
 reportEmacsThrowToEmacs' :: Env -> EmacsThrow -> IO ()
-reportEmacsThrowToEmacs' env EmacsThrow{emacsThrowTag, emacsThrowValue} = do
+reportEmacsThrowToEmacs' env EmacsThrow{emacsThrowTag, emacsThrowValue} =
   Raw.nonLocalExitThrow env emacsThrowTag emacsThrowValue
+
+-- | A Haskell exception used to signal a @signal@ exit performed by an
+-- Emacs function.
+--
+-- Unlikely to be needed when developing Emacs extensions.
+data EmacsSignal = EmacsSignal
+  { emacsSignalSym    :: !(RawValue 'Unknown)
+  , emacsSignalData   :: !(RawValue 'Regular)
+  , emacsSignalInfo   :: !Text
+  , emacsSignalOrigin :: CallStack
+  }
+
+instance Show EmacsSignal where
+  showsPrec _ EmacsSignal{emacsSignalInfo, emacsSignalOrigin}
+    = showString "EmacsSignal "
+    . showString (T.unpack emacsSignalInfo)
+    . showChar '\n'
+    . showString (prettyCallStack emacsSignalOrigin)
+
+instance Exception EmacsSignal
+
+reportEmacsSignalToEmacs :: Env -> EmacsSignal -> IO (RawValue 'Unknown)
+reportEmacsSignalToEmacs env et = do
+  nil <- mkNil env
+  reportEmacsSignalToEmacs' env et
+  pure nil
+
+reportEmacsSignalToEmacs' :: Env -> EmacsSignal -> IO ()
+reportEmacsSignalToEmacs' env EmacsSignal{emacsSignalSym, emacsSignalData} =
+  Raw.nonLocalExitSignal env emacsSignalSym emacsSignalData
 
 -- | Error thrown to emacs by Haskell functions when anything goes awry.
 data UserError = UserError
@@ -140,7 +175,7 @@ instance Pretty EmacsError where
     "Location:" <> line <>
     indent 2 (ppCallStack emacsErrStack)
 
-reportErrorToEmacs :: Env -> EmacsError -> IO RawValue
+reportErrorToEmacs :: Env -> EmacsError -> IO (RawValue 'Unknown)
 reportErrorToEmacs env e = do
   nil <- mkNil env
   report render env e
@@ -148,12 +183,19 @@ reportErrorToEmacs env e = do
 
 -- | A low-level error thrown when assumptions of this package are
 -- violated and it's not safe to proceed further.
+--
+-- E.g. Emacs returned value not specified in a C enum - cannot
+-- really process it in a meaningful way.
 data EmacsInternalError = EmacsInternalError
   { emacsInternalErrMsg   :: Doc Void
   , emacsInternalErrStack :: CallStack
-  } deriving (Show)
+  }
 
 instance Exception EmacsInternalError
+
+instance Show EmacsInternalError where
+  showsPrec _ (EmacsInternalError msg stack)
+    = showString (renderString ("EmacsInternalError" ## msg <> line <> ppCallStack stack))
 
 mkEmacsInternalError
   :: WithCallStack
@@ -164,7 +206,7 @@ mkEmacsInternalError msg = EmacsInternalError
   , emacsInternalErrStack = callStack
   }
 
-reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO RawValue
+reportInternalErrorToEmacs :: Env -> EmacsInternalError -> IO (RawValue 'Unknown)
 reportInternalErrorToEmacs env e = do
   nil <- mkNil env
   report render env e
@@ -180,15 +222,19 @@ instance Pretty EmacsInternalError where
 formatSomeException :: SomeException -> Text
 formatSomeException e =
   case pretty @EmacsError         <$> fromException e <|>
-       pretty @EmacsInternalError <$> fromException e <|>
-       pretty @UserError          <$> fromException e of
+       pretty @EmacsInternalError <$> fromException e of
+          -- <|>
+       -- pretty @EmacsThrow         <$> fromException e <|>
+       -- pretty @EmacsSignal        <$> fromException e of
+         -- <|>
+       -- pretty @UserError          <$> fromException e of
     Just formatted -> render' formatted
-    Nothing ->
+    Nothing        ->
       PP.renderStrict $ layoutPretty defaultLayoutOptions $
         "Error within Haskell<->Emacs bindings:" <> line <>
         indent 2 (pretty (show e))
 
-reportAnyErrorToEmacs :: Env -> SomeException -> IO RawValue
+reportAnyErrorToEmacs :: Env -> SomeException -> IO (RawValue 'Unknown)
 reportAnyErrorToEmacs env e = do
   nil <- mkNil env
   report formatSomeException env e
@@ -202,14 +248,16 @@ reportAnyErrorToEmacs env e = do
 reportAllErrorsToEmacs
   :: Env
   -> IO a -- ^ Result to return on error.
-  -> ((Throws EmacsInternalError, Throws EmacsError, Throws UserError, Throws EmacsThrow) => IO a)
+  -- -> ((Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow, Throws EmacsSignal) => IO a)
+  -> IO a
   -> IO a
 reportAllErrorsToEmacs env resultOnErr x
   = Exception.handle (\e -> report formatSomeException env e *> resultOnErr)
-  $ Checked.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
-  $ Checked.uncheck (Proxy @EmacsInternalError)
-  $ Checked.uncheck (Proxy @EmacsError)
-  $ Checked.uncheck (Proxy @UserError) x
+  $ Exception.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
+  $ Exception.handle (\et -> reportEmacsSignalToEmacs' env et *> resultOnErr) x
+  -- $ Exception.uncheck (Proxy @EmacsInternalError)
+  -- $ Exception.uncheck (Proxy @EmacsError) x
+  -- $ Checked.uncheck (Proxy @UserError) x
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
@@ -231,9 +279,8 @@ withTextAsCString0AndLen str f =
   where
     utf8 = TE.encodeUtf8 str
 
-mkNil :: WithCallStack => Env -> IO RawValue
-mkNil env =
-  reifySymbolRaw env Sym.nil
+mkNil :: WithCallStack => Env -> IO (RawValue 'Unknown)
+mkNil env = reifySymbolUnknown env Sym.nil
 
 render :: Pretty a => a -> Text
 render = render' . pretty
@@ -243,4 +290,3 @@ render' = PP.renderStrict . layoutPretty defaultLayoutOptions
 
 ppCallStack :: CallStack -> Doc ann
 ppCallStack = pretty . prettyCallStack
-

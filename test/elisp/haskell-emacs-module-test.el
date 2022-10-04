@@ -74,9 +74,10 @@
                  -3)))
 
 (ert-deftest haskell-emacs-module-test/add-4 ()
-  (should-error
-   (haskell-emacs-module-tests-add 1 "oops")
-   :type 'error))
+  (should (eq (car (should-error
+                    (haskell-emacs-module-tests-add 1 "oops")
+                    :type 'error))
+              'wrong-type-argument)))
 
 ;; Test passing and interpretation of the &rest argument.
 

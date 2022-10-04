@@ -95,44 +95,53 @@ library
     Data.Emacs.Module.Doc
     Data.Emacs.Module.Env
     Data.Emacs.Module.Env.Functions
+    Data.Emacs.Module.Env.ProcessInput
     Data.Emacs.Module.GetRawValue
     Data.Emacs.Module.NonNullPtr
     Data.Emacs.Module.Runtime
     Data.Emacs.Module.SymbolName
     Data.Emacs.Module.SymbolName.Predefined
+    Data.Emacs.Module.SymbolName.Predefined.Funcall
     Data.Emacs.Module.SymbolName.TH
     Data.Emacs.Module.Value
     Emacs.Module
     Emacs.Module.Assert
     Emacs.Module.Errors
+    Emacs.Module.EmacsCall
     Emacs.Module.Functions
-    Emacs.Module.Monad
+    Emacs.Module.Monad.Sync
     Emacs.Module.Monad.Class
+    Foreign.Ptr.Builder
   other-modules:
     Data.Emacs.Module.NonNullPtr.Internal
     Data.Emacs.Module.Raw.Env
     Data.Emacs.Module.Raw.Env.Internal
     Data.Emacs.Module.Raw.Env.TH
     Data.Emacs.Module.Raw.Value
+    Data.Emacs.Module.Raw.Value.Internal
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
   hs-source-dirs:
     src
   build-depends:
-    , base >=4.14 && <5
+    , async
+    , base >= 4.14 && < 5
     , bytestring
     , deepseq
     , exceptions
     , monad-control
     , mtl
     , primitive
-    , prettyprinter >=1.7
+    , prettyprinter >= 1.7
     , prettyprinter-combinators
-    , safe-exceptions-checked
+    , some
+    , stm
+    , stm-chans
     , text
     , template-haskell
     , transformers-base
-    , vector >=0.13
+    , tuples-homogenous-h98
+    , vector >= 0.13
     , void
 
   includes:

@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE KindSignatures        #-}
@@ -20,7 +21,6 @@ module Emacs.Module.Monad.Class
   , MonadEmacs(..)
   ) where
 
-import Control.Exception.Safe.Checked (Throws)
 import Data.ByteString qualified as BS
 import Data.Int
 import Data.Kind
@@ -30,9 +30,9 @@ import Foreign.Ptr (Ptr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env.Functions
+import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName
 import Emacs.Module.Assert
-import Emacs.Module.Errors
 
 -- | Basic Haskell function that can be called by Emacs.
 type EmacsFunction req opt rest (s :: k) (m :: k -> Type -> Type)
@@ -48,6 +48,13 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
   -- after 'm' finishes its execution.
   type EmacsRef m :: k -> Type
 
+  -- | Make a global reference to a value so that it will persist
+  -- across different calls from Emacs into exposed functions.
+  makeGlobalRef :: WithCallStack => EmacsRef m s -> m s (RawValue 'Pinned)
+
+  -- | Free a global reference.
+  freeGlobalRef :: WithCallStack => RawValue 'Pinned -> m s ()
+
   -- | Check whether a non-local exit is pending.
   nonLocalExitCheck :: WithCallStack => m s (FuncallExit ())
 
@@ -57,17 +64,17 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
     :: WithCallStack
     => m s (FuncallExit (EmacsRef m s, EmacsRef m s))
 
-  -- | Equivalent to Emacs's @signal@ function.
+  -- | Equivalent to Emacs's @signal@ function. Terminates current computation.
   --
   -- NB if a non-local exit is alredy pending, this function will not
-  -- overwrite it. In order to do that, use 'nonLocalExitClear'.
+  -- overwrite it. In order to do that, first use 'nonLocalExitClear'.
   nonLocalExitSignal
-    :: WithCallStack
-    => EmacsRef m s   -- ^ Error symbol
-    -> [EmacsRef m s] -- ^ Error data, will be converted to a list as Emacs API expects.
+    :: (WithCallStack, Foldable f)
+    => EmacsRef m s     -- ^ Error symbol
+    -> f (EmacsRef m s) -- ^ Error data, will be converted to a list as Emacs API expects.
     -> m s ()
 
-  -- | Equivalent to Emacs's @throw@ function.
+  -- | Equivalent to Emacs's @throw@ function. Terminates current computation.
   --
   -- NB if a non-local exit is alredy pending, this function will not
   -- overwrite it. In order to do that, use 'nonLocalExitClear'.
@@ -85,34 +92,36 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
   -- be fed into 'bindFunction'.
   makeFunction
     :: (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'.
-         (Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow, Throws UserError) =>
-         EmacsFunction req opt rest s' m) -- ^ Haskell function to export
+    => (forall s'. EmacsFunction req opt rest s' m) -- ^ Haskell function to export
     -> Doc.Doc                                      -- ^ Documentation
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function that may call back into Haskell.
   funcall
-    :: WithCallStack
-    => SymbolName      -- ^ Function name
-    -> [EmacsRef m s]  -- ^ Arguments
+    :: (WithCallStack, Foldable f)
+    => EmacsRef m s     -- ^ Function name
+    -> f (EmacsRef m s) -- ^ Arguments
     -> m s (EmacsRef m s)
 
   -- | Invoke an Emacs function. The function should be simple and
   -- must not call back into Haskell.
   funcallPrimitive
-    :: WithCallStack
-    => SymbolName      -- ^ Function name
-    -> [EmacsRef m s]  -- ^ Arguments
+    :: (WithCallStack, Foldable f)
+    => EmacsRef m s     -- ^ Function name
+    -> f (EmacsRef m s) -- ^ Arguments
     -> m s (EmacsRef m s)
 
-  -- | Invoke an Emacs function and ignore its result. The function
-  -- should be simple and must not call back into Haskell.
-  funcallPrimitive_
-    :: WithCallStack
-    => SymbolName     -- ^ Function name
-    -> [EmacsRef m s] -- ^ Arguments
-    -> m s ()
+  -- | Invoke an Emacs function. The function should be simple and
+  -- must not call back into Haskell.
+  --
+  -- Exit status is not checked - function is expected to always
+  -- succeed. Consult Emacs side to make sure that's the case.
+  -- Examples of safe functions: @cons@, @list@, @vector@, etc.
+  funcallPrimitiveUnchecked
+    :: (WithCallStack, Foldable f)
+    => EmacsRef m s     -- ^ Function name
+    -> f (EmacsRef m s) -- ^ Arguments
+    -> m s (EmacsRef m s)
 
   -- | Convert a string to an Emacs symbol.
   intern
@@ -132,7 +141,7 @@ class (forall s. Monad (m s)) => MonadEmacs (m :: k -> Type -> Type) where
   -- characters are the equal, but not much more. For more complete
   -- equality comparison do
   --
-  -- > funcallPrimitive [esym|equal|] [x, y]
+  -- > intern "equal" >>= \equal -> funcallPrimitive equal [x, y]
   eq
     :: WithCallStack
     => EmacsRef m s -> EmacsRef m s -> m s Bool

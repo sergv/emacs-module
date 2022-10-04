@@ -18,7 +18,10 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Emacs.Module.Functions
-  ( bindFunction
+  ( funcallPrimitiveSym
+  , funcallPrimitiveUncheckedSym
+  , funcallPrimitiveSym_
+  , bindFunction
   , provide
   , makeUserPtrFromStablePtr
   , extractStablePtrFromUserPtr
@@ -59,6 +62,7 @@ module Emacs.Module.Functions
   , MonadMask
   ) where
 
+import Control.Monad
 import Control.Monad.Catch
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as BSS
@@ -66,6 +70,7 @@ import Data.Foldable
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
+import Data.Tuple.Homogenous
 import Data.Vector.Unboxed qualified as U
 import Foreign.StablePtr
 
@@ -74,6 +79,32 @@ import Data.Emacs.Module.SymbolName
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module.Assert
 import Emacs.Module.Monad.Class
+
+-- | Call a function by its name, similar to 'funcallPrimitive'.
+{-# INLINE funcallPrimitiveSym #-}
+funcallPrimitiveSym
+  :: (WithCallStack, MonadEmacs m, Foldable f)
+  => SymbolName -> f (EmacsRef m s) -> m s (EmacsRef m s)
+funcallPrimitiveSym func args = do
+  func' <- intern func
+  funcallPrimitive func' args
+
+-- | Call a function by its name, similar to 'funcallPrimitiveUnchecked'.
+{-# INLINE funcallPrimitiveUncheckedSym #-}
+funcallPrimitiveUncheckedSym
+  :: (WithCallStack, MonadEmacs m, Foldable f)
+  => SymbolName -> f (EmacsRef m s) -> m s (EmacsRef m s)
+funcallPrimitiveUncheckedSym func args = do
+  func' <- intern func
+  funcallPrimitive func' args
+
+-- | Call a function by its name and ignore its result, similar to 'funcallPrimitiveSym'.
+{-# INLINE funcallPrimitiveSym_ #-}
+funcallPrimitiveSym_
+  :: (WithCallStack, MonadEmacs m, Foldable f)
+  => SymbolName -> f (EmacsRef m s) -> m s ()
+funcallPrimitiveSym_ func args =
+  void $ funcallPrimitiveSym func args
 
 {-# INLINABLE bindFunction #-}
 -- | Assign a name to function value.
@@ -84,7 +115,7 @@ bindFunction
   -> m s ()
 bindFunction name def = do
   name' <- intern name
-  funcallPrimitive_ Sym.fset [name', def]
+  funcallPrimitiveSym_ Sym.fset [name', def]
 
 {-# INLINE provide #-}
 -- | Signal to Emacs that certain feature is being provided. Returns provided
@@ -95,7 +126,7 @@ provide
   -> m s ()
 provide sym = do
   sym' <- intern sym
-  funcallPrimitive_ Sym.provide [sym']
+  void $ funcallPrimitiveUncheckedSym Sym.provide [sym']
 
 {-# INLINE makeUserPtrFromStablePtr #-}
 -- | Pack a stable pointer as Emacs @user_ptr@.
@@ -193,7 +224,7 @@ makeVector
   :: (WithCallStack, MonadEmacs m)
   => [EmacsRef m s]
   -> m s (EmacsRef m s)
-makeVector = funcallPrimitive Sym.vector
+makeVector = funcallPrimitiveUncheckedSym Sym.vector
 
 {-# INLINE vconcat2 #-}
 -- | Concatenate two vectors.
@@ -203,7 +234,7 @@ vconcat2
   -> EmacsRef m s
   -> m s (EmacsRef m s)
 vconcat2 x y =
-  funcallPrimitive Sym.vconcat [x, y]
+  funcallPrimitiveSym Sym.vconcat (Tuple2 (x, y))
 
 {-# INLINE cons #-}
 -- | Make a cons pair out of two values.
@@ -212,7 +243,7 @@ cons
   => EmacsRef m s -- ^ car
   -> EmacsRef m s -- ^ cdr
   -> m s (EmacsRef m s)
-cons x y = funcallPrimitive Sym.cons [x, y]
+cons x y = funcallPrimitiveUncheckedSym Sym.cons (Tuple2 (x, y))
 
 {-# INLINE car #-}
 -- | Take first element of a pair.
@@ -220,7 +251,7 @@ car
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-car = funcallPrimitive Sym.car . (: [])
+car = funcallPrimitiveSym Sym.car . Tuple1
 
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
@@ -228,7 +259,7 @@ cdr
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-cdr = funcallPrimitive Sym.cdr . (: [])
+cdr = funcallPrimitiveSym Sym.cdr . Tuple1
 
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.
@@ -244,7 +275,7 @@ setcar
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
-setcar x y = funcallPrimitive_ Sym.setcar [x, y]
+setcar x y = funcallPrimitiveSym_ Sym.setcar (Tuple2 (x, y))
 
 {-# INLINE setcdr #-}
 -- | Mutate second element of a cons pair.
@@ -253,7 +284,7 @@ setcdr
   => EmacsRef m s -- ^ Cons pair
   -> EmacsRef m s -- ^ New value
   -> m s ()
-setcdr x y = funcallPrimitive_ Sym.setcdr [x, y]
+setcdr x y = funcallPrimitiveSym_ Sym.setcdr (Tuple2 (x, y))
 
 {-# INLINE makeList #-}
 -- | Construct vanilla Emacs list from a Haskell list.
@@ -369,7 +400,7 @@ propertize
   -> m s (EmacsRef m s)           -- ^ Propertised string
 propertize str props = do
   props' <- traverse (\(name, val) -> (\name' -> [name', val]) <$> intern name) props
-  funcallPrimitive Sym.propertize (str : concat props')
+  funcallPrimitiveSym Sym.propertize (str : concat props')
 
 {-# INLINE concat2 #-}
 -- | Concatenate two strings.
@@ -379,7 +410,7 @@ concat2
   -> EmacsRef m s
   -> m s (EmacsRef m s)
 concat2 x y =
-  funcallPrimitive Sym.concat [x, y]
+  funcallPrimitiveSym Sym.concat (Tuple2 (x, y))
 
 {-# INLINE valueToText #-}
 -- | Convert an Emacs value into a string using @prin1-to-string@.
@@ -387,8 +418,8 @@ valueToText
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s Text
-valueToText x =
-  extractText =<< funcallPrimitive Sym.prin1ToString [x]
+valueToText =
+  extractText <=< funcallPrimitiveUncheckedSym Sym.prin1ToString . Tuple1
 
 {-# INLINE symbolName #-}
 -- | Wrapper around Emacs @symbol-name@ function - take a symbol
@@ -397,4 +428,4 @@ symbolName
   :: (WithCallStack, MonadEmacs m)
   => EmacsRef m s
   -> m s (EmacsRef m s)
-symbolName = funcallPrimitive Sym.symbolName . (:[])
+symbolName = funcallPrimitiveSym Sym.symbolName . Tuple1

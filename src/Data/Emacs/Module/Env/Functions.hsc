@@ -41,12 +41,14 @@ data FuncallExit a
 instance Pretty a => Pretty (FuncallExit a) where
   pretty = ppGeneric
 
+{-# INLINE funcallExitToNum #-}
 funcallExitToNum :: Num a => FuncallExit b -> a
 funcallExitToNum = \case
   FuncallExitReturn   -> (#const emacs_funcall_exit_return)
   FuncallExitSignal{} -> (#const emacs_funcall_exit_signal)
   FuncallExitThrow{}  -> (#const emacs_funcall_exit_throw)
 
+{-# INLINE funcallExitFromNum #-}
 funcallExitFromNum :: (Eq a, Num a) => a -> Maybe (FuncallExit ())
 funcallExitFromNum = \case
   (#const emacs_funcall_exit_return) -> Just FuncallExitReturn

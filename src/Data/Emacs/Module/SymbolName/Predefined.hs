@@ -39,22 +39,23 @@ import Prelude hiding (error, concat)
 
 import Data.Emacs.Module.SymbolName.TH
 
-cacheSym "error"
-cacheSym "list"
-cacheSym "cons"
-cacheSym "car"
-cacheSym "cdr"
-cacheSym "setcar"
-cacheSym "setcdr"
-cacheSym "nil"
-cacheSym "fset"
-cacheSym "provide"
-cacheSym "t"
-cacheSym "vector"
-cacheSym "vconcat"
-cacheSym "face"
-cacheSym "propertize"
-cacheSym "concat"
-cacheSym "symbolName"
-cacheSym "prin1ToString"
-cacheSym "funcall"
+import Data.Emacs.Module.SymbolName.Predefined.Funcall
+
+cacheSym "error"           Nothing
+cacheSym "list"            Nothing
+cacheSym "cons"            Nothing
+cacheSym "car"             Nothing
+cacheSym "cdr"             Nothing
+cacheSym "setcar"          Nothing
+cacheSym "setcdr"          Nothing
+cacheSym "nil"             Nothing
+cacheSym "fset"            Nothing
+cacheSym "provide"         Nothing
+cacheSym "t"               Nothing
+cacheSym "vector"          Nothing
+cacheSym "vconcat"         Nothing
+cacheSym "face"            Nothing
+cacheSym "propertize"      Nothing
+cacheSym "concat"          Nothing
+cacheSym "symbol-name"     (Just "symbolName")
+cacheSym "prin1-to-string" (Just "prin1ToString")

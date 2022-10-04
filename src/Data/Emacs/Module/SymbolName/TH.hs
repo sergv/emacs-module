@@ -15,22 +15,24 @@ module Data.Emacs.Module.SymbolName.TH
   ) where
 
 import Data.IORef
+import Data.Maybe
 import Language.Haskell.TH
 import System.IO.Unsafe
 
 import Data.Emacs.Module.Raw.Env.Internal (Env)
-import Data.Emacs.Module.Raw.Value (GlobalRef)
-import Data.Emacs.Module.SymbolName.Internal
+import Data.Emacs.Module.Raw.Value
+import Data.Emacs.Module.SymbolName.Internal qualified as Sym
 
-cacheSym :: String -> Q [Dec]
-cacheSym sym = do
-  ref      <- newName ("ref_" ++ sym)
+cacheSym :: String -> Maybe String -> Q [Dec]
+cacheSym sym bindingName = do
+  ref      <- newName ("ref_" ++ binding)
   noinline <- pragInlD ref NoInline FunLike AllPhases
-  refSig   <- sigD ref [t| IORef (Env -> IO GlobalRef) |]
-  refDecl  <- valD (varP ref) (normalB [e| unsafePerformIO (mkSymbolNameCache $sym') |]) []
-  symSig   <- sigD (mkName sym) [t| SymbolName |]
-  symDecl  <- valD (varP (mkName sym)) (normalB [e| CachedSymbol $(varE ref) $sym' |]) []
+  refSig   <- sigD ref [t| IORef (Env -> IO (RawValue 'Pinned)) |]
+  refDecl  <- valD (varP ref) (normalB [e| unsafePerformIO (Sym.mkSymbolNameCache $sym') |]) []
+  symSig   <- sigD (mkName binding) [t| Sym.SymbolName |]
+  symDecl  <- valD (varP (mkName binding)) (normalB [e| Sym.CachedSymbol $(varE ref) $sym' |]) []
   pure [noinline, refSig, refDecl, symSig, symDecl]
   where
     sym' :: ExpQ
-    sym' = [e| mkSymbolNameString $(litE (stringL sym)) |]
+    sym' = [e| Sym.mkSymbolNameString $(litE (stringL sym)) |]
+    binding = fromMaybe sym bindingName

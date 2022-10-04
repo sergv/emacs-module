@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -32,7 +33,7 @@ import Data.Vector.Unboxed.Base qualified as U
 import GHC.Generics (Generic)
 import Prettyprinter (Pretty)
 
-import Data.Emacs.Module.Raw.Value (RawValue(..))
+import Data.Emacs.Module.Raw.Value
 
 -- | Value that is independent of environment ('Env') that produced it.
 -- Incidentally, this implies that it's "protected" against Emacs GC and
@@ -45,7 +46,7 @@ import Data.Emacs.Module.Raw.Value (RawValue(..))
 -- is, it ensures that value cannot leave the scope of the monad that
 -- produced it.
 newtype Value (s :: k) = Value
-  { unValue :: RawValue
+  { unValue :: RawValue 'Regular
   } deriving (Show, NFData, Generic, Prim, Pretty)
 
 newtype instance U.MVector s (Value s') = MV_Value (P.MVector s (Value s'))

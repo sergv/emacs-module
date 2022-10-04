@@ -7,9 +7,7 @@
 ----------------------------------------------------------------------------
 
 module Data.Emacs.Module.Value
-  ( RawValue
-  , Value(..)
+  ( Value
   ) where
 
-import Data.Emacs.Module.Raw.Value (RawValue)
 import Data.Emacs.Module.Value.Internal

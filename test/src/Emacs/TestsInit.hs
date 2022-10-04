@@ -21,8 +21,9 @@
 module Emacs.TestsInit () where
 
 import Data.ByteString.Char8 qualified as C8
+import Data.Functor
 import Data.Maybe
-import Foreign
+import Foreign hiding (void)
 import Foreign.C
 
 import Data.Emacs.Module.Args
@@ -31,7 +32,6 @@ import Data.Emacs.Module.Runtime qualified as Runtime
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module
 import Emacs.Module.Assert
-import Emacs.Module.Errors
 
 foreign export ccall initialise :: Ptr Runtime -> IO CBool
 
@@ -50,7 +50,7 @@ initialise runtime = do
       pure $ if res then true else false
 
 initialise'
-  :: (WithCallStack, Throws EmacsThrow, Throws EmacsError, Throws EmacsInternalError)
+  :: WithCallStack
   => EmacsM s Bool
 initialise' = do
   bindFunction "haskell-emacs-module-tests-apply2" =<<
@@ -71,8 +71,11 @@ apply2
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
 apply2 (R f (R x Stop)) = do
-  y <- funcall Sym.funcall [f, x]
-  res <- funcall Sym.funcall [f, y]
+  -- funcallSym <- intern Sym.funcall
+  -- y          <- funcall funcallSym [f, x]
+  -- res        <- funcall funcallSym [f, y]
+  y          <- funcall f [x]
+  res        <- funcall f [y]
   pure res
 
 add
@@ -84,8 +87,9 @@ add (R x (R y Stop)) =
 getRest
   :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'True s m
-getRest (R _req (Rest rest)) =
-  funcall Sym.vector rest
+getRest (R _req (Rest rest)) = do
+  vectorSym <- intern Sym.vector
+  funcall vectorSym rest
 
 appendLotsOfStrings
   :: forall m s. (WithCallStack, MonadEmacs m, MonadMask (m s))
@@ -132,9 +136,10 @@ concat2' (x, xStr) (y, yStr) =
   (go, xStr <> yStr)
   where
     go = do
-      x' <- x
-      y' <- y
-      _ <- funcallPrimitive "garbage-collect" []
+      x'    <- x
+      y'    <- y
+      gcSym <- intern "garbage-collect"
+      void $ funcallPrimitiveUnchecked gcSym []
       concat2 x' y'
 
 vconcat2'
@@ -146,9 +151,10 @@ vconcat2' (x, xs) (y, ys) =
   (go, xs <> ys)
   where
     go = do
-      x' <- x
-      y' <- y
-      _ <- funcallPrimitive "garbage-collect" []
+      x'    <- x
+      y'    <- y
+      gcSym <- intern "garbage-collect"
+      void $ funcallPrimitiveUnchecked gcSym []
       vconcat2 x' y'
 
 appendTree :: (a -> a -> a) -> [a] -> Maybe a

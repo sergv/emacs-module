@@ -94,8 +94,8 @@ class EmacsInvocation req opt rest where
   supplyEmacsArgs
     :: MonadBase IO m
     => Int
-    -> Ptr RawValue
-    -> (RawValue -> m a)
+    -> Ptr (RawValue 'Regular)
+    -> (RawValue 'Regular -> m a)
     -> (EmacsArgs req opt rest a -> m b)
     -> m b
 
@@ -108,8 +108,8 @@ instance EmacsInvocation 'Z 'Z 'True where
   supplyEmacsArgs
     :: MonadBase IO m
     => Int
-    -> Ptr RawValue
-    -> (RawValue -> m a)
+    -> Ptr (RawValue 'Regular)
+    -> (RawValue 'Regular -> m a)
     -> (Rest a -> m b)
     -> m b
   supplyEmacsArgs nargs startPtr mkArg f =
@@ -118,17 +118,17 @@ instance EmacsInvocation 'Z 'Z 'True where
       n -> f . Rest =<< traverse mkArg =<< liftBase (peekArray n startPtr)
 
 {-# INLINE advanceEmacsValuePtr #-}
-advanceEmacsValuePtr :: Ptr RawValue -> Ptr RawValue
+advanceEmacsValuePtr :: forall p. Ptr (RawValue p) -> Ptr (RawValue p)
 advanceEmacsValuePtr =
-  (`plusPtr` (sizeOf (undefined :: RawValue)))
+  (`plusPtr` (sizeOf (undefined :: RawValue p)))
 
 instance EmacsInvocation 'Z n rest => EmacsInvocation 'Z ('S n) rest where
   {-# INLINE supplyEmacsArgs #-}
   supplyEmacsArgs
     :: forall m a b. MonadBase IO m
     => Int
-    -> Ptr RawValue
-    -> (RawValue -> m a)
+    -> Ptr (RawValue 'Regular)
+    -> (RawValue 'Regular -> m a)
     -> (O a (EmacsArgs 'Z n rest a) -> m b)
     -> m b
   supplyEmacsArgs nargs startPtr mkArg f =
@@ -147,8 +147,8 @@ instance EmacsInvocation n opt rest => EmacsInvocation ('S n) opt rest where
   supplyEmacsArgs
     :: MonadBase IO m
     => Int
-    -> Ptr RawValue
-    -> (RawValue -> m a)
+    -> Ptr (RawValue 'Regular)
+    -> (RawValue 'Regular -> m a)
     -> (R a (EmacsArgs n opt rest a) -> m b)
     -> m b
   supplyEmacsArgs nargs startPtr mkArg f = do

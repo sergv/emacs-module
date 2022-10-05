@@ -32,6 +32,7 @@ import Data.Emacs.Module.Runtime qualified as Runtime
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module
 import Emacs.Module.Assert
+import Emacs.Module.Monad.Sync qualified as Sync
 
 foreign export ccall initialise :: Ptr Runtime -> IO CBool
 
@@ -46,12 +47,12 @@ initialise runtime = do
     Nothing        -> pure false
     Just runtime'' -> do
       env <- Runtime.getEnvironment runtime''
-      res <- reportAllErrorsToEmacs env (pure False) $ runEmacsM env initialise'
+      res <- reportAllErrorsToEmacs env (pure False) $ Sync.runEmacsM env initialise'
       pure $ if res then true else false
 
 initialise'
-  :: WithCallStack
-  => EmacsM s Bool
+  :: (WithCallStack, MonadEmacs m)
+  => m s Bool
 initialise' = do
   bindFunction "haskell-emacs-module-tests-apply2" =<<
     makeFunction apply2 "Apply a function twice."
@@ -92,7 +93,7 @@ getRest (R _req (Rest rest)) = do
   funcall vectorSym rest
 
 appendLotsOfStrings
-  :: forall m s. (WithCallStack, MonadEmacs m, MonadMask (m s))
+  :: forall m s. (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
@@ -105,7 +106,7 @@ appendLotsOfStrings (R n Stop) = do
   pure $ fromMaybe empty' res'
 
 appendLotsOfVectors
-  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m)
   => EmacsFunction ('S 'Z) 'Z 'False s m
 appendLotsOfVectors (R n Stop) = do
   n'     <- extractInt n
@@ -128,7 +129,7 @@ emacsReplicate (R n (R x Stop)) = do
   makeList (replicate n' x)
 
 concat2'
-  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (m s (EmacsRef m s), C8.ByteString)
   -> (m s (EmacsRef m s), C8.ByteString)
   -> (m s (EmacsRef m s), C8.ByteString)
@@ -143,7 +144,7 @@ concat2' (x, xStr) (y, yStr) =
       concat2 x' y'
 
 vconcat2'
-  :: (WithCallStack, MonadEmacs m, MonadMask (m s))
+  :: (WithCallStack, MonadEmacs m)
   => (m s (EmacsRef m s), [Int])
   -> (m s (EmacsRef m s), [Int])
   -> (m s (EmacsRef m s), [Int])

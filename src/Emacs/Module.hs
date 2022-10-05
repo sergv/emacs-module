@@ -62,12 +62,8 @@
 
 module Emacs.Module
   (
-    -- * EmacsM
-    EmacsM
-  , runEmacsM
-
     -- * Basic bindings
-  , MonadEmacs(..)
+    MonadEmacs(..)
 
     -- ** Define functions callable by Emacs
   , EmacsFunction
@@ -98,5 +94,4 @@ import Data.Emacs.Module.Env (Env)
 import Data.Emacs.Module.Value
 import Emacs.Module.Errors
 import Emacs.Module.Functions
-import Emacs.Module.Monad.Sync
 import Emacs.Module.Monad.Class

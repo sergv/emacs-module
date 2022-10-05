@@ -38,10 +38,7 @@ module Emacs.Module.Monad.Sync
   , runEmacsM
   ) where
 
--- import Control.Exception.Safe.Checked (Throws)
--- import Control.Exception.Safe.Checked qualified as Checked
-
-import Control.Concurrent.Async
+import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TMQueue
@@ -131,9 +128,17 @@ runEmacsM
   -> IO a
 runEmacsM env (EmacsM action) = do
   reqs <- newTMQueueIO
-  withAsync (runReaderT action Environment { eRequests = reqs } `Exception.finally` atomically (closeTMQueue reqs)) $ \workerAsync -> do
-    processCalls env reqs
-    wait workerAsync
+  res  <- newEmptyMVar
+  Exception.bracket
+    (forkFinally
+      (runReaderT action Environment { eRequests = reqs } `Exception.finally` atomically (closeTMQueue reqs))
+      (putMVar res))
+    killThread
+    (\_tid -> do
+      processCalls env reqs
+      readMVar res >>= \case
+        Left e  -> Exception.throwIO e
+        Right x -> pure x)
 
 callNoResult
   :: WithCallStack

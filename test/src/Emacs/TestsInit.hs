@@ -51,7 +51,7 @@ initialise runtime = do
       pure $ if res then true else false
 
 initialise'
-  :: (WithCallStack, MonadEmacs m)
+  :: (WithCallStack, MonadEmacs m v)
   => m s Bool
 initialise' = do
   bindFunction "haskell-emacs-module-tests-apply2" =<<
@@ -66,11 +66,13 @@ initialise' = do
     makeFunction appendLotsOfVectors "Append [1 2 3] vector N times to itself."
   bindFunction "haskell-emacs-module-tests-replicate" =<<
     makeFunction emacsReplicate "Replicate an item N times"
+  bindFunction "haskell-emacs-module-tests-grow-list" =<<
+    makeFunction emacsGrowList "Append list with itself"
   pure True
 
 apply2
-  :: (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S ('S 'Z)) 'Z 'False m v s
 apply2 (R f (R x Stop)) = do
   -- funcallSym <- intern Sym.funcall
   -- y          <- funcall funcallSym [f, x]
@@ -80,34 +82,34 @@ apply2 (R f (R x Stop)) = do
   pure res
 
 add
-  :: (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S ('S 'Z)) 'Z 'False m v s
 add (R x (R y Stop)) =
   makeInt =<< (+) <$> extractInt x <*> extractInt y
 
 getRest
-  :: (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S 'Z) 'Z 'True s m
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S 'Z) 'Z 'True m v s
 getRest (R _req (Rest rest)) = do
   vectorSym <- intern Sym.vector
   funcall vectorSym rest
 
 appendLotsOfStrings
-  :: forall m s. (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S 'Z) 'Z 'False s m
+  :: forall m v s. (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S 'Z) 'Z 'False m v s
 appendLotsOfStrings (R n Stop) = do
   n'     <- extractInt n
   -- foo'   <- makeString "foo"
   empty' <- makeString ""
-  let input :: [(m s (EmacsRef m s), C8.ByteString)]
+  let input :: [(m s (v s), C8.ByteString)]
       input = replicate n' (makeString "foo", "foo")
       res = appendTree concat2' input
   res' <- traverse fst res
   pure $ fromMaybe empty' res'
 
 appendLotsOfVectors
-  :: (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S 'Z) 'Z 'False s m
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S 'Z) 'Z 'False m v s
 appendLotsOfVectors (R n Stop) = do
   n'     <- extractInt n
   one    <- makeInt 1
@@ -122,17 +124,24 @@ appendLotsOfVectors (R n Stop) = do
   pure $ fromMaybe empty' res'
 
 emacsReplicate
-  :: (WithCallStack, MonadEmacs m)
-  => EmacsFunction ('S ('S 'Z)) 'Z 'False s m
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S ('S 'Z)) 'Z 'False m v s
 emacsReplicate (R n (R x Stop)) = do
   n' <- extractInt n
   makeList (replicate n' x)
 
+emacsGrowList
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S 'Z) 'Z 'False m v s
+emacsGrowList (R xs Stop) = do
+  ys <- extractList xs
+  makeList $ ys ++ ys ++ ys
+
 concat2'
-  :: (WithCallStack, MonadEmacs m)
-  => (m s (EmacsRef m s), C8.ByteString)
-  -> (m s (EmacsRef m s), C8.ByteString)
-  -> (m s (EmacsRef m s), C8.ByteString)
+  :: (WithCallStack, MonadEmacs m v)
+  => (m s (v s), C8.ByteString)
+  -> (m s (v s), C8.ByteString)
+  -> (m s (v s), C8.ByteString)
 concat2' (x, xStr) (y, yStr) =
   (go, xStr <> yStr)
   where
@@ -144,10 +153,10 @@ concat2' (x, xStr) (y, yStr) =
       concat2 x' y'
 
 vconcat2'
-  :: (WithCallStack, MonadEmacs m)
-  => (m s (EmacsRef m s), [Int])
-  -> (m s (EmacsRef m s), [Int])
-  -> (m s (EmacsRef m s), [Int])
+  :: (WithCallStack, MonadEmacs m v)
+  => (m s (v s), [Int])
+  -> (m s (v s), [Int])
+  -> (m s (v s), [Int])
 vconcat2' (x, xs) (y, ys) =
   (go, xs <> ys)
   where

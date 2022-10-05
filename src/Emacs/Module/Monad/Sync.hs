@@ -24,6 +24,7 @@
 {-# LANGUAGE MagicHash                  #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE NumericUnderscores         #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -47,6 +48,7 @@ import Control.Exception qualified as Exception
 import Control.Monad.Base
 import Control.Monad.Catch qualified as Catch
 import Control.Monad.Except
+import Control.Monad.Interleave
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
@@ -115,6 +117,11 @@ newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment I
     , MonadFix
     )
 
+instance MonadInterleave (EmacsM s) where
+  unsafeInterleave (EmacsM action) = EmacsM $ do
+    env <- ask
+    liftIO $ unsafeInterleave $ runReaderT action env
+
 instance MonadBaseControl IO (EmacsM s) where
   type StM (EmacsM s) a = StM (ReaderT Environment IO) a
   {-# INLINE liftBaseWith #-}
@@ -137,10 +144,17 @@ runEmacsM env (EmacsM action) = do
       (putMVar res))
     killThread
     (\_tid -> do
-      processCalls env reqs
-      readMVar res >>= \case
-        Left e  -> Exception.throwIO e
-        Right x -> pure x)
+        Exception.bracket
+          (forkIO $
+              forever $ do
+                threadDelay 16_667 -- 1/60 = 0.016666s
+                atomically $ writeTMQueue reqs $ mkSome ProcessInput)
+          killThread
+          (\_tid2 -> do
+            processCalls env reqs
+            readMVar res >>= \case
+              Left e  -> Exception.throwIO e
+              Right x -> pure x))
 
 callNoResult
   :: WithCallStack
@@ -202,9 +216,7 @@ handleEmacsResThrow = \case
   EmacsExitThrow e  -> Exception.throwIO e { emacsThrowOrigin  = callStack }
   EmacsSuccess x    -> pure x
 
-instance MonadEmacs EmacsM where
-
-  type EmacsRef EmacsM = Value
+instance MonadEmacs EmacsM Value where
 
   {-# INLINE makeGlobalRef #-}
   makeGlobalRef :: WithCallStack => Value s -> EmacsM s (RawValue 'Pinned)
@@ -257,7 +269,7 @@ instance MonadEmacs EmacsM where
   {-# INLINE makeFunction #-}
   makeFunction
     :: forall req opt rest s. (WithCallStack, EmacsInvocation req opt rest, GetArities req opt rest)
-    => (forall s'. EmacsFunction req opt rest s' EmacsM)
+    => (forall s'. EmacsFunction req opt rest EmacsM Value s')
     -> Doc.Doc
     -> EmacsM s (Value s)
   makeFunction emacsFun doc = do

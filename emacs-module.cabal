@@ -130,6 +130,7 @@ library
     , deepseq
     , exceptions
     , monad-control
+    , monad-interleave
     , mtl
     , primitive
     , prettyprinter >= 1.7

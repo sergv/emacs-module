@@ -161,6 +161,22 @@
   (should (equal (haskell-emacs-module-tests-replicate 3 '(a b c))
                  '((a b c) (a b c) (a b c)))))
 
+(ert-deftest haskell-emacs-module-tests-grow-list-01 ()
+  (should (equal (haskell-emacs-module-tests-grow-list '())
+                 '())))
+
+(ert-deftest haskell-emacs-module-tests-grow-list-02 ()
+  (should (equal (haskell-emacs-module-tests-grow-list '(a b c))
+                 '(a b c a b c a b c))))
+
+(ert-deftest haskell-emacs-module-tests-grow-list-03 ()
+  (should (equal (haskell-emacs-module-tests-grow-list '(a [2 3] c))
+                 '(a [2 3] c a [2 3] c a [2 3] c))))
+
+(ert-deftest haskell-emacs-module-tests-grow-list-04 ()
+  (should (equal (haskell-emacs-module-tests-grow-list (make-list 5000 42))
+                 (make-list 15000 42))))
+
 
 (provide 'haskell-emacs-module-test)
 

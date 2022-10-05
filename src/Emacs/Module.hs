@@ -32,8 +32,8 @@
 -- import Emacs.Module
 --
 -- foo
---   :: (MonadEmacs m, Monad (m s))
---   => EmacsFunction ('S ('S ('S ('S 'Z)))) ('S ('S 'Z)) 'True s m
+--   :: (MonadEmacs m v, Monad (m s))
+--   => EmacsFunction ('S ('S ('S ('S 'Z)))) ('S ('S 'Z)) 'True m v s
 -- foo (R f (R x (R y (R z (O w (O t (Rest quux))))))) = do
 --   x'    <- extractInt x
 --   y'    <- extractInt y
@@ -42,7 +42,7 @@
 --   t'    <- traverse extractInt t
 --
 --   tmp   <- makeInt (x' * y' * z')
---   tmp'  <- extractInt =<< funcall [esym|funcall|] [f, tmp]
+--   tmp'  <- extractInt =<< funcallSym "funcall" [f, tmp]
 --
 --   produceRef =<< makeInt (tmp' + fromMaybe 1 w' * fromMaybe 2 t' + length quux)
 -- @

@@ -189,4 +189,7 @@ data EmacsCall (f :: Type -> Type -> Type -> Type) (out :: Type -> Type) (res ::
     -> out (f EmacsSignal Void Int)
     -> EmacsCall f out (f EmacsSignal Void Int)
 
+  ProcessInput
+    :: EmacsCall f out ()
+
 deriving instance (forall x. Show (out x)) => Show (EmacsCall f out a)

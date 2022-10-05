@@ -51,6 +51,7 @@ import Prettyprinter
 
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env.Functions
+import Data.Emacs.Module.Env.ProcessInput
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env (EnumFuncallExit(..))
 import Data.Emacs.Module.Raw.Env qualified as Env
@@ -259,6 +260,16 @@ extractStringUnsafe env x = do
         Env.nonLocalExitClear env
         throwIO $ mkEmacsInternalError "Failed to unpack string"
 
+processInput :: Env -> IO ()
+processInput env = do
+  Env.EnumProcessInputResult (CInt x) <- Env.processInput env
+  case processInputResultFromNum x of
+    Nothing                   ->
+      throwIO $ mkEmacsInternalError $
+        "Unknown value of enum emacs_process_input_result" <+> pretty x
+    Just ProcessInputContinue -> pure ()
+    Just ProcessInputQuit     -> throwIO EarlyTermination
+
 data NonLocalState = NonLocalState
   { nlsErr  :: {-# UNPACK #-} !(NonNullPtr (RawValue 'Regular))
   , nlsData :: {-# UNPACK #-} !(NonNullPtr (RawValue 'Regular))
@@ -389,3 +400,4 @@ callEmacs env nls = \case
       =<< checkNonLocalExitSignal env nls "VecSize" . fromIntegral
       =<< Env.vecSize env vec
 
+  ProcessInput -> processInput env

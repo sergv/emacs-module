@@ -30,6 +30,9 @@ data ProcessInputResult
   | ProcessInputQuit
   deriving (Eq, Ord, Show, Data, Generic, Lift)
 
+instance Pretty ProcessInputResult where
+  pretty = ppGeneric
+
 {-# INLINE processInputResultToNum #-}
 processInputResultToNum :: Num a => ProcessInputResult -> a
 processInputResultToNum = \case

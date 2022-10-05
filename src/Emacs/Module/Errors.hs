@@ -31,6 +31,7 @@ module Emacs.Module.Errors
   , reportInternalErrorToEmacs
   , UserError(..)
   , mkUserError
+  , EarlyTermination(..)
 
   , formatSomeException
   , reportAnyErrorToEmacs
@@ -145,6 +146,15 @@ mkUserError funcName body = UserError
   , userErrMsg          = body
   , userErrStack        = callStack
   }
+
+-- | User requested to terminate computation early via C-g.
+data EarlyTermination = EarlyTermination
+  deriving (Show)
+
+instance Exception EarlyTermination
+
+instance Pretty EarlyTermination where
+  pretty EarlyTermination = "EarlyTermination"
 
 -- | A high-level error thrown when an Emacs function fails.
 data EmacsError = EmacsError

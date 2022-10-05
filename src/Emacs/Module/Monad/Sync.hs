@@ -1,11 +1,12 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Emacs.Module.Monad
+-- Module      :  Emacs.Module.Monad.Sync
 -- Copyright   :  (c) Sergey Vinokurov 2018
 -- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 --
--- This module defines the implementation of the 'MonadEmacs'.
+-- This module defines an implementation of the 'MonadEmacs'. This vesrion
+-- is a good default.
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE BangPatterns               #-}

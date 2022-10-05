@@ -121,6 +121,7 @@ library
     Data.Emacs.Module.Raw.Value.Internal
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
+    Emacs.Module.Monad.Sync.Impl
   hs-source-dirs:
     src
   build-depends:

@@ -84,6 +84,7 @@ import Emacs.Module.Assert
 import Emacs.Module.EmacsCall
 import Emacs.Module.Errors
 import Emacs.Module.Monad.Class
+import Emacs.Module.Monad.Sync.Impl
 
 newtype Environment = Environment
   { eRequests :: TMQueue (Some (EmacsCall EmacsRes MVar))

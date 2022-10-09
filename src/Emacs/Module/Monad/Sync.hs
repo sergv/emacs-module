@@ -147,7 +147,7 @@ runEmacsM env (EmacsM action) = do
         Exception.bracket
           (forkIO $
               forever $ do
-                threadDelay 16_667 -- 1/60 = 0.016666s
+                threadDelay 16_667 -- 1/60 = 0.016666s, check on each frame whether to abort.
                 atomically $ writeTMQueue reqs $ mkSome ProcessInput)
           killThread
           (\_tid2 -> do

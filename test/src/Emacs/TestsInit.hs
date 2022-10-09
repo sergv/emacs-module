@@ -68,6 +68,8 @@ initialise' = do
     makeFunction emacsReplicate "Replicate an item N times"
   bindFunction "haskell-emacs-module-tests-grow-list" =<<
     makeFunction emacsGrowList "Append list with itself"
+  bindFunction "haskell-emacs-module-tests-incorrect-vector-assignment" =<<
+    makeFunction emacsIncorrectVectorAssignment "vecSet that should result in error"
   pure True
 
 apply2
@@ -136,6 +138,15 @@ emacsGrowList
 emacsGrowList (R xs Stop) = do
   ys <- extractList xs
   makeList $ ys ++ ys ++ ys
+
+emacsIncorrectVectorAssignment
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction 'Z 'Z 'False m v s
+emacsIncorrectVectorAssignment Stop = do
+  n   <- makeInt 36
+  vec <- makeVector $ replicate 42 n
+  vecSet vec 42 n
+  nil
 
 concat2'
   :: (WithCallStack, MonadEmacs m v)

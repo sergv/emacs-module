@@ -187,6 +187,17 @@ callWithResultMayFailSignal mkReq = do
     atomically $ writeTMQueue reqs $ mkSome $ mkReq res
     unsafeInterleaveIO $ handleEmacsResSignal =<< readMVar res
 
+callWithResultMayFailSignalWaitSideEffect
+  :: WithCallStack
+  => (MVar (EmacsRes EmacsSignal Void ()) -> EmacsCall EmacsRes MVar (EmacsRes EmacsSignal Void ()))
+  -> EmacsM s ()
+callWithResultMayFailSignalWaitSideEffect mkReq = do
+  reqs <- EmacsM $ asks eRequests
+  liftIO $ do
+    res <- newEmptyMVar
+    atomically $ writeTMQueue reqs $ mkSome $ mkReq res
+    handleEmacsResSignal =<< readMVar res
+
 handleEmacsResSignal
   :: WithCallStack
   => EmacsRes EmacsSignal Void a
@@ -387,7 +398,7 @@ instance MonadEmacs EmacsM Value where
 
   assignUserPtr :: WithCallStack => Value s -> Ptr a -> EmacsM s ()
   assignUserPtr dest ptr =
-    callWithResultMayFailSignal (SetUserPtr (getRawValue dest) ptr)
+    callWithResultMayFailSignalWaitSideEffect (SetUserPtr (getRawValue dest) ptr)
 
   extractUserPtrFinaliser
     :: WithCallStack => Value s -> EmacsM s (FinalizerPtr a)
@@ -397,7 +408,7 @@ instance MonadEmacs EmacsM Value where
   assignUserPtrFinaliser
     :: WithCallStack => Value s -> FinalizerPtr a -> EmacsM s ()
   assignUserPtrFinaliser x fin =
-    callWithResultMayFailSignal (SetUserPtrFinaliser (getRawValue x) fin)
+    callWithResultMayFailSignalWaitSideEffect (SetUserPtrFinaliser (getRawValue x) fin)
 
   vecGet :: WithCallStack => Value s -> Int -> EmacsM s (Value s)
   vecGet vec n
@@ -411,8 +422,7 @@ instance MonadEmacs EmacsM Value where
     -> Value s -- ^ New value
     -> EmacsM s ()
   vecSet vec n x
-    = coerce
-    $ callWithResultMayFailSignal (VecSet (getRawValue vec) n (getRawValue x))
+    = callWithResultMayFailSignalWaitSideEffect (VecSet (getRawValue vec) n (getRawValue x))
 
   vecSize :: WithCallStack => Value s -> EmacsM s Int
   vecSize vec

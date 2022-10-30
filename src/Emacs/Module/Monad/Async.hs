@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Emacs.Module.Monad.Sync
+-- Module      :  Emacs.Module.Monad.Async
 -- Copyright   :  (c) Sergey Vinokurov 2018
 -- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
@@ -33,15 +33,12 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-
-module Emacs.Module.Monad.Sync
+module Emacs.Module.Monad.Async
   ( EmacsM
   , runEmacsM
   ) where
 
 import Control.Concurrent
-import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TMQueue
 import Control.Exception qualified as Exception
@@ -53,42 +50,30 @@ import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
-import Data.ByteString.Internal qualified as BSI
-import Data.ByteString.Unsafe qualified as BSU
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Int
 import Data.Kind
 import Data.Proxy
-import Data.Text qualified as T
-import Data.Text.Encoding qualified as TE
-import Data.Text.Encoding.Error qualified as TE
 import Data.Void
-import Foreign (Storable(..))
-import Foreign.C.Types
-import Foreign.Marshal.Array
-import Foreign.Ptr (Ptr, castFunPtrToPtr, nullPtr, castPtr)
+import Foreign.Ptr (Ptr)
 import Foreign.Ptr.Builder qualified as PtrBuilder
 import GHC.ForeignPtr
 import GHC.Stack (callStack)
-import Prettyprinter
 import System.IO.Unsafe
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.GetRawValue
-import Data.Emacs.Module.NonNullPtr
-import Data.Emacs.Module.Raw.Env qualified as Raw
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName.Internal
-import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Data.Emacs.Module.Value.Internal
 import Emacs.Module.Assert
 import Emacs.Module.EmacsCall
 import Emacs.Module.Errors
+import Emacs.Module.Monad.Async.Impl
 import Emacs.Module.Monad.Class
-import Emacs.Module.Monad.Sync.Impl
 
 newtype Environment = Environment
   { eRequests :: TMQueue (Some (EmacsCall EmacsRes MVar))

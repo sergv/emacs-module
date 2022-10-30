@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Emacs.Module.Monad.Sync.Impl
+-- Module      :  Emacs.Module.Monad.Async.Impl
 -- Copyright   :  (c) Sergey Vinokurov 2022
 -- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
@@ -16,7 +16,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Emacs.Module.Monad.Sync.Impl
+module Emacs.Module.Monad.Async.Impl
   ( EmacsRes(..)
   , processCalls
   , callEmacs

@@ -49,6 +49,7 @@ import Control.Monad.Base
 import Control.Monad.Catch qualified as Catch
 import Control.Monad.Except
 import Control.Monad.Interleave
+import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
@@ -115,6 +116,7 @@ newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment I
     , Catch.MonadMask
     , MonadBase IO
     , MonadFix
+    , PrimMonad
     )
 
 instance MonadInterleave (EmacsM s) where

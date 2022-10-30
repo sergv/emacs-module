@@ -109,8 +109,8 @@ library
     Emacs.Module.Errors
     Emacs.Module.EmacsCall
     Emacs.Module.Functions
-    Emacs.Module.Monad.Sync
     Emacs.Module.Monad.Class
+    Emacs.Module.Monad.Sync
     Foreign.Ptr.Builder
   other-modules:
     Data.Emacs.Module.NonNullPtr.Internal

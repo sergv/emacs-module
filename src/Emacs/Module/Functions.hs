@@ -36,6 +36,7 @@ module Emacs.Module.Functions
   , makeBool
     -- * Vectors
   , extractVector
+  , extractVectorAsPrimArray
   , makeVector
   , vconcat2
     -- * Lists
@@ -67,6 +68,8 @@ import Control.Monad.Interleave
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as BSS
 import Data.Foldable
+import Data.Primitive.PrimArray
+import Data.Primitive.Types
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 import Data.Text.Encoding.Error qualified as TE
@@ -217,6 +220,15 @@ extractVector
 extractVector xs = do
   n <- vecSize xs
   U.generateM n $ vecGet xs
+
+{-# INLINE extractVectorAsPrimArray #-}
+-- | Get all elements form an Emacs vector.
+extractVectorAsPrimArray
+  :: (WithCallStack, MonadEmacs m v, Prim (v s))
+  => v s -> m s (PrimArray (v s))
+extractVectorAsPrimArray xs = do
+  n <- vecSize xs
+  generatePrimArrayA n $ vecGet xs
 
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.

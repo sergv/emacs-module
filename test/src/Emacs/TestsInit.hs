@@ -32,7 +32,7 @@ import Data.Emacs.Module.Runtime qualified as Runtime
 import Data.Emacs.Module.SymbolName.Predefined qualified as Sym
 import Emacs.Module
 import Emacs.Module.Assert
-import Emacs.Module.Monad.Sync qualified as Sync
+import Emacs.Module.Monad.Async qualified as Async
 
 foreign export ccall initialise :: Ptr Runtime -> IO CBool
 
@@ -47,7 +47,7 @@ initialise runtime = do
     Nothing        -> pure false
     Just runtime'' -> do
       env <- Runtime.getEnvironment runtime''
-      res <- reportAllErrorsToEmacs env (pure False) $ Sync.runEmacsM env initialise'
+      res <- reportAllErrorsToEmacs env (pure False) $ Async.runEmacsM env initialise'
       pure $ if res then true else false
 
 initialise'

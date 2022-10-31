@@ -109,8 +109,10 @@ library
     Emacs.Module.Errors
     Emacs.Module.EmacsCall
     Emacs.Module.Functions
+    Emacs.Module.Monad
     Emacs.Module.Monad.Async
     Emacs.Module.Monad.Class
+    Emacs.Module.Monad.Sync
     Foreign.Ptr.Builder
   other-modules:
     Data.Emacs.Module.NonNullPtr.Internal
@@ -122,6 +124,7 @@ library
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
     Emacs.Module.Monad.Async.Impl
+    Emacs.Module.Monad.Common
   hs-source-dirs:
     src
   build-depends:

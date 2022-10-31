@@ -23,6 +23,7 @@ import Data.Kind
 import Data.Void
 import Foreign.ForeignPtr
 import Foreign.Ptr
+import GHC.Stack (CallStack)
 
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env.Functions
@@ -55,7 +56,8 @@ data EmacsCall (f :: Type -> Type -> Type -> Type) (out :: Type -> Type) (res ::
     :: out (FuncallExit (RawValue 'Regular, RawValue 'Regular))
     -> EmacsCall f out (FuncallExit (RawValue 'Regular, RawValue 'Regular))
   NonLocalExitSignal
-    :: RawValue 'Unknown           -- ^ Error symbol
+    :: CallStack
+    -> RawValue 'Unknown           -- ^ Error symbol
     -> Builder (RawValue 'Regular) -- ^ Error data
     -> out EmacsSignal
     -> EmacsCall f out EmacsSignal

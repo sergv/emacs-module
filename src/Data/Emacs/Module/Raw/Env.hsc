@@ -19,6 +19,7 @@
 module Data.Emacs.Module.Raw.Env
   ( EnumFuncallExit(..)
   , EnumProcessInputResult(..)
+  , Env
   , CBoolean
   , isTruthy
   , isNonTruthy

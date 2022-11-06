@@ -99,7 +99,7 @@ funcallPrimitiveUncheckedSym
   => SymbolName -> f (v s) -> m s (v s)
 funcallPrimitiveUncheckedSym func args = do
   func' <- intern func
-  funcallPrimitive func' args
+  funcallPrimitiveUnchecked func' args
 
 -- | Call a function by its name and ignore its result, similar to 'funcallPrimitiveSym'.
 {-# INLINE funcallPrimitiveSym_ #-}

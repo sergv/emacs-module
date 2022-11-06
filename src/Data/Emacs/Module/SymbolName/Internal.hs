@@ -111,6 +111,7 @@ mkSymbolNameCache = go
           writeIORef ref $ \_env -> pure global
           pure global
 
+{-# INLINE mkCachedSymbolName #-}
 mkCachedSymbolName :: IORef (Env -> IO (RawValue 'Pinned)) -> SymbolName -> SymbolName
 mkCachedSymbolName = CachedSymbol
 

@@ -259,11 +259,12 @@ cons x y = funcallPrimitiveUncheckedSym Sym.cons (Tuple2 (x, y))
 
 {-# INLINE car #-}
 -- | Take first element of a pair.
+
 car
   :: (WithCallStack, MonadEmacs m v)
   => v s
   -> m s (v s)
-car = funcallPrimitiveSym Sym.car . Tuple1
+car = funcallPrimitiveUncheckedSym Sym.car . Tuple1
 
 {-# INLINE cdr #-}
 -- | Take second element of a pair.
@@ -271,7 +272,7 @@ cdr
   :: (WithCallStack, MonadEmacs m v)
   => v s
   -> m s (v s)
-cdr = funcallPrimitiveSym Sym.cdr . Tuple1
+cdr = funcallPrimitiveUncheckedSym Sym.cdr . Tuple1
 
 {-# INLINE nil #-}
 -- | A @nil@ symbol aka empty list.

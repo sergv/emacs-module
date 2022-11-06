@@ -278,11 +278,10 @@ instance MonadEmacs EmacsM Value where
     => Value s
     -> f (Value s)
     -> EmacsM s (Value s)
-  funcallPrimitiveUnchecked func args = EmacsM $ do
-    Environment{eEnv} <- ask
-    liftIO $
+  funcallPrimitiveUnchecked func args =
+    withEnv $ \env ->
       withPtrLenNonNull (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
-        coerce $ Env.funcallPrimitive @IO eEnv (getRawValue func) (fromIntegral n) args'
+        coerce $ Env.funcallPrimitive @IO env (getRawValue func) (fromIntegral n) args'
 
   intern
     :: WithCallStack

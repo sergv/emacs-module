@@ -156,3 +156,5 @@ library
     cbits
   build-tool-depends:
     hsc2hs:hsc2hs
+  ghc-prof-options:
+    -fprof-late

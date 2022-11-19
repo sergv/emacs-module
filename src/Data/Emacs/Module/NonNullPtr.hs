@@ -44,6 +44,7 @@ allocaBytesNonNull = coerce (allocaBytes :: Int -> (Ptr a -> IO b) -> IO b)
 
 {-# INLINE withPtrLenNonNull #-}
 withPtrLenNonNull
-  :: forall a b. (WithCallStack, Storable a) => Builder a -> (Int -> NonNullPtr a -> IO b) -> IO b
+  :: forall a b. (WithCallStack, Storable a)
+  => BuilderCache a -> Builder a -> (Int -> NonNullPtr a -> IO b) -> IO b
 withPtrLenNonNull =
-  coerce (withPtrLen :: Builder a -> (Int -> Ptr a -> IO b) -> IO b)
+  coerce (withPtrLen :: BuilderCache a -> Builder a -> (Int -> Ptr a -> IO b) -> IO b)

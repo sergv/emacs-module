@@ -112,16 +112,17 @@ nonLocalExitGet env NonLocalState{nlsErr, nlsData} = do
 {-# INLINE nonLocalExitSignal #-}
 nonLocalExitSignal
   :: WithCallStack
-  => Env
+  => BuilderCache (RawValue a)
+  -> Env
   -> CallStack
   -> RawValue 'Unknown           -- ^ Error symbol
   -> Builder (RawValue 'Regular) -- ^ Error data
   -> IO EmacsSignal
-nonLocalExitSignal env emacsSignalOrigin sym dat = do
+nonLocalExitSignal cache env emacsSignalOrigin sym dat = do
   listSym <- reifySymbolUnknown env Sym.list
-  withPtrLenNonNull dat $ \n args -> do
+  withPtrLenNonNull (coerceBuilderCache cache) dat $ \n args -> do
     dat'            <- Env.funcallPrimitive env listSym (fromIntegral n) args
-    emacsSignalInfo <- extractSignalInfo env sym dat'
+    emacsSignalInfo <- extractSignalInfo cache env sym dat'
     Env.nonLocalExitSignal env sym dat'
     pure EmacsSignal
       { emacsSignalSym  = toUnknown sym
@@ -132,11 +133,12 @@ nonLocalExitSignal env emacsSignalOrigin sym dat = do
 
 extractString
   :: WithCallStack
-  => Env
+  => BuilderCache (RawValue a)
+  -> Env
   -> NonLocalState
   -> RawValue p
   -> IO (EmacsRes EmacsSignal Void BS.ByteString)
-extractString env nls x = do
+extractString cache env nls x = do
   allocaNonNull $ \pSize -> do
     res <- Env.copyStringContents env x nullPtr pSize
     if Env.isNonTruthy res
@@ -158,7 +160,7 @@ extractString env nls x = do
          FuncallExitSignal (sym, dat) -> do
            -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
            Env.nonLocalExitClear env
-           emacsSignalInfo <- extractSignalInfo env sym dat
+           emacsSignalInfo <- extractSignalInfo cache env sym dat
            pure $ EmacsExitSignal $ EmacsSignal
              { emacsSignalSym    = toUnknown sym
              , emacsSignalData   = dat
@@ -173,19 +175,20 @@ extractString env nls x = do
 
 checkNonLocalExitSignal
   :: WithCallStack
-  => Env
+  => BuilderCache (RawValue b)
+  -> Env
   -> NonLocalState
   -> Text
   -> a
   -> IO (EmacsRes EmacsSignal Void a)
-checkNonLocalExitSignal env nls errMsg res = do
+checkNonLocalExitSignal cache env nls errMsg res = do
   nonLocalExitGet env nls >>= \ case
     FuncallExitReturn            ->
       pure $ EmacsSuccess res
     FuncallExitSignal (sym, dat) -> do
       -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
       Env.nonLocalExitClear env
-      emacsSignalInfo <- extractSignalInfo env sym dat
+      emacsSignalInfo <- extractSignalInfo cache env sym dat
       pure $ EmacsExitSignal $ EmacsSignal
         { emacsSignalSym    = toUnknown sym
         , emacsSignalData   = dat
@@ -198,18 +201,19 @@ checkNonLocalExitSignal env nls errMsg res = do
 
 checkNonLocalExitFull
   :: WithCallStack
-  => Env
+  => BuilderCache (RawValue b)
+  -> Env
   -> NonLocalState
   -> a
   -> IO (EmacsRes EmacsSignal EmacsThrow a)
-checkNonLocalExitFull env nls res =
+checkNonLocalExitFull cache env nls res =
   nonLocalExitGet env nls >>= \ case
     FuncallExitReturn            ->
       pure $ EmacsSuccess res
     FuncallExitSignal (sym, dat) -> do
       -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
       Env.nonLocalExitClear env
-      emacsSignalInfo <- extractSignalInfo env sym dat
+      emacsSignalInfo <- extractSignalInfo cache env sym dat
       pure $ EmacsExitSignal $ EmacsSignal
         { emacsSignalSym    = toUnknown sym
         , emacsSignalData   = dat
@@ -230,13 +234,15 @@ checkNonLocalExitFull env nls res =
 
 
 
-extractSignalInfo :: WithCallStack => Env -> RawValue p -> RawValue 'Regular -> IO Text
-extractSignalInfo env sym dat = do
+extractSignalInfo
+  :: WithCallStack
+  => BuilderCache (RawValue a) -> Env -> RawValue p -> RawValue 'Regular -> IO Text
+extractSignalInfo cache env sym dat = do
   cons          <- reifySymbolUnknown env Sym.cons
-  dat'          <- withPtrLenNonNull (foldMap PtrBuilder.storable $ Tuple2 (toUnknown sym, toUnknown dat)) $ \n args ->
+  dat'          <- withPtrLenNonNull (coerceBuilderCache cache) (foldMap PtrBuilder.storable $ Tuple2 (toUnknown sym, toUnknown dat)) $ \n args ->
     Env.funcallPrimitive env cons (fromIntegral n) args
   prin1ToString <- reifySymbolUnknown env Sym.prin1ToString
-  formatted     <- withPtrLenNonNull (foldMap PtrBuilder.storable $ Tuple1 dat') $ \n args ->
+  formatted     <- withPtrLenNonNull (coerceBuilderCache cache) (foldMap PtrBuilder.storable $ Tuple1 dat') $ \n args ->
     Env.funcallPrimitive env prin1ToString (fromIntegral n) args
   formatRes     <- unpackEnumFuncallExit =<< Env.nonLocalExitCheck env
   case formatRes of

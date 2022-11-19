@@ -47,19 +47,16 @@ import Control.Monad.Interleave
 import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Data.Array.Byte
 import Data.ByteString qualified as BS
 import Data.ByteString.Unsafe qualified as BSU
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
-import Data.IORef
 import Data.Int
 import Data.Kind
 import Data.Proxy
 import Data.Void
 import Foreign.C.Types
 import Foreign.Ptr
-import GHC.Exts (RealWorld)
 import GHC.ForeignPtr
 import GHC.Stack (callStack)
 
@@ -82,7 +79,7 @@ import Foreign.Ptr.Builder as PtrBuilder
 data Environment = Environment
   { eEnv           :: {-# UNPACK #-} !Env
   , eNonLocalState :: {-# UNPACK #-} !NonLocalState
-  , eArgs          :: {-# UNPACK #-} !(IORef (MutableByteArray RealWorld))
+  , eArgsCache     :: {-# UNPACK #-} !(BuilderCache (RawValue 'Unknown))
   }
 
 -- | Concrete monad for interacting with Emacs. It provides:
@@ -113,7 +110,7 @@ instance MonadInterleave (EmacsM s) where
   unsafeInterleave = id
   -- unsafeInterleave (EmacsM action) = EmacsM $ do
   --   env <- ask
-  --   liftIO $ unsafeInterleave $ runReaderT action env
+  --   liftBase $ unsafeInterleave $ runReaderT action env
 
 instance MonadIO (EmacsM s) where
   {-# INLINE liftIO #-}
@@ -136,9 +133,10 @@ runEmacsM
   => Env
   -> (forall s. EmacsM s a)
   -> IO a
-runEmacsM eEnv (EmacsM action) = do
+runEmacsM eEnv (EmacsM action) =
   withNonLocalState $ \eNonLocalState ->
-    runReaderT action Environment { eEnv, eNonLocalState }
+    withBuilderCache 8 $ \eArgsCache ->
+      runReaderT action Environment { eEnv, eNonLocalState, eArgsCache }
   -- Exception.bracket
   --   (forkFinally
   --     (runReaderT action Environment { eRequests = reqs } `Exception.finally` atomically (closeTMQueue reqs))
@@ -157,9 +155,16 @@ runEmacsM eEnv (EmacsM action) = do
   --             Left e  -> Exception.throwIO e
   --             Right x -> pure x))
 
+{-# INLINE withEnv #-}
 withEnv :: (Env -> IO a) -> EmacsM s a
-withEnv f = EmacsM $ do
+withEnv f = EmacsM $
   liftBase . f =<< asks eEnv
+
+{-# INLINE withEnvCache #-}
+withEnvCache :: (Env -> BuilderCache (RawValue b) -> IO a) -> EmacsM s a
+withEnvCache f = EmacsM $ do
+  Environment{eEnv, eArgsCache} <- ask
+  liftBase $ f eEnv (coerceBuilderCache eArgsCache)
 
 handleResult :: EmacsRes EmacsSignal EmacsThrow a -> IO a
 handleResult = \case
@@ -205,8 +210,8 @@ instance MonadEmacs EmacsM Value where
     => Value s     -- ^ Error symbol
     -> f (Value s) -- ^ Error data, will be converted to a list as Emacs API expects.
     -> EmacsM s ()
-  nonLocalExitSignal sym errData = withEnv $ \env ->
-    Exception.throwIO =<< Common.nonLocalExitSignal env callStack (coerce sym) errData'
+  nonLocalExitSignal sym errData = withEnvCache $ \env cache ->
+    Exception.throwIO =<< Common.nonLocalExitSignal cache env callStack (coerce sym) errData'
     where
       errData' =
         foldMap (coerce (PtrBuilder.storable :: RawValue 'Regular -> PtrBuilder.Builder (RawValue 'Regular))) errData
@@ -237,7 +242,7 @@ instance MonadEmacs EmacsM Value where
     -> Doc.Doc
     -> EmacsM s (Value s)
   makeFunction emacsFun doc = withEnv $ \env -> do
-    impl' <- liftIO $ exportToEmacs impl
+    impl' <- liftBase $ exportToEmacs impl
     Doc.useDocAsCString doc $ \doc' -> do
       func <- Env.makeFunction env minArity maxArity impl' doc' (castFunPtrToPtr (unRawFunction impl'))
       Env.setFunctionFinalizer env func freeHaskellFunPtrWrapped
@@ -262,12 +267,12 @@ instance MonadEmacs EmacsM Value where
     -> f (Value s)
     -> EmacsM s (Value s)
   funcall func args = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
-      withPtrLenNonNull (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
-            coerce . handleResult
-        =<< Common.checkNonLocalExitFull eEnv eNonLocalState
-        =<< Env.funcall eEnv (getRawValue func) (fromIntegral n) args'
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
+          coerce . handleResult
+      =<< Common.checkNonLocalExitFull (coerceBuilderCache eArgsCache) eEnv eNonLocalState
+      =<< (withPtrLenNonNull (coerceBuilderCache eArgsCache) (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
+             Env.funcall eEnv (getRawValue func) (fromIntegral n) args')
 
 
   {-# INLINE funcallPrimitive #-}
@@ -277,12 +282,12 @@ instance MonadEmacs EmacsM Value where
     -> f (Value s)
     -> EmacsM s (Value s)
   funcallPrimitive func args = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
-      withPtrLenNonNull (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
-            coerce . handleResult
-        =<< Common.checkNonLocalExitFull eEnv eNonLocalState
-        =<< Env.funcallPrimitive eEnv (getRawValue func) (fromIntegral n) args'
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
+          coerce . handleResult
+      =<< Common.checkNonLocalExitFull (coerceBuilderCache eArgsCache) eEnv eNonLocalState
+      =<< (withPtrLenNonNull (coerceBuilderCache eArgsCache) (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
+            Env.funcallPrimitive eEnv (getRawValue func) (fromIntegral n) args')
 
   {-# INLINE funcallPrimitiveUnchecked #-}
   funcallPrimitiveUnchecked
@@ -291,8 +296,8 @@ instance MonadEmacs EmacsM Value where
     -> f (Value s)
     -> EmacsM s (Value s)
   funcallPrimitiveUnchecked func args =
-    withEnv $ \env ->
-      withPtrLenNonNull (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
+    withEnvCache $ \env cache ->
+      withPtrLenNonNull cache (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
         coerce $ Env.funcallPrimitive @IO env (getRawValue func) (fromIntegral n) args'
 
   intern
@@ -308,6 +313,7 @@ instance MonadEmacs EmacsM Value where
   typeOf x = withEnv $ \env ->
     coerce $ Env.typeOf @IO env (getRawValue x)
 
+  {-# INLINE isNotNil #-}
   isNotNil :: WithCallStack => Value s -> EmacsM s Bool
   isNotNil x = withEnv $ \env ->
     Env.isTruthy <$> Env.isNotNil env (getRawValue x)
@@ -318,10 +324,10 @@ instance MonadEmacs EmacsM Value where
 
   extractWideInteger :: WithCallStack => Value s -> EmacsM s Int64
   extractWideInteger x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
       $   handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "ExtractInteger" . fromIntegral
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "ExtractInteger" . fromIntegral
       =<< Env.extractInteger eEnv (getRawValue x)
 
   makeWideInteger :: WithCallStack => Int64 -> EmacsM s (Value s)
@@ -330,10 +336,10 @@ instance MonadEmacs EmacsM Value where
 
   extractDouble :: WithCallStack => Value s -> EmacsM s Double
   extractDouble x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
       $   handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "ExtractFloat" . (\(CDouble y) -> y)
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "ExtractFloat" . (\(CDouble y) -> y)
       =<< Env.extractFloat eEnv (getRawValue x)
 
   makeDouble :: WithCallStack => Double -> EmacsM s (Value s)
@@ -342,10 +348,10 @@ instance MonadEmacs EmacsM Value where
 
   extractString :: WithCallStack => Value s -> EmacsM s BS.ByteString
   extractString x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
       $   handleResultNoThrow
-      =<< Common.extractString eEnv eNonLocalState (getRawValue x)
+      =<< Common.extractString (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
 
   makeString :: WithCallStack => BS.ByteString -> EmacsM s (Value s)
   makeString x = withEnv $ \env ->
@@ -354,10 +360,10 @@ instance MonadEmacs EmacsM Value where
 
   extractUserPtr :: WithCallStack => Value s -> EmacsM s (Ptr a)
   extractUserPtr x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
       $   handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "GetUserPtr"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "GetUserPtr"
       =<< Env.getUserPtr eEnv (getRawValue x)
 
   makeUserPtr
@@ -370,37 +376,37 @@ instance MonadEmacs EmacsM Value where
 
   assignUserPtr :: WithCallStack => Value s -> Ptr a -> EmacsM s ()
   assignUserPtr dest ptr = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
     -- callWithResultMayFailSignalWaitSideEffect (SetUserPtr (getRawValue dest) ptr)
-    liftIO $
+    liftBase $
           handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "SetUserPtr"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "SetUserPtr"
       =<< Env.setUserPtr eEnv (getRawValue dest) ptr
 
   extractUserPtrFinaliser
     :: WithCallStack => Value s -> EmacsM s (FinalizerPtr a)
   extractUserPtrFinaliser x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
           handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "GetUserPtrFinaliser"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "GetUserPtrFinaliser"
       =<< Env.getUserFinaliser eEnv (getRawValue x)
 
   assignUserPtrFinaliser
     :: WithCallStack => Value s -> FinalizerPtr a -> EmacsM s ()
   assignUserPtrFinaliser x fin = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
           handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "SetUserPtrFinaliser"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "SetUserPtrFinaliser"
       =<< Env.setUserFinaliser eEnv (getRawValue x) fin
 
   vecGet :: WithCallStack => Value s -> Int -> EmacsM s (Value s)
   vecGet vec n = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
           coerce . handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "VecGet"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecGet"
       =<< Env.vecGet eEnv (getRawValue vec) (fromIntegral n)
 
   vecSet
@@ -410,16 +416,16 @@ instance MonadEmacs EmacsM Value where
     -> Value s -- ^ New value
     -> EmacsM s ()
   vecSet vec n x = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
           handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "VecSet"
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecSet"
       =<< Env.vecSet eEnv (getRawValue vec) (fromIntegral n) (getRawValue x)
 
   vecSize :: WithCallStack => Value s -> EmacsM s Int
   vecSize vec = EmacsM $ do
-    Environment{eEnv, eNonLocalState} <- ask
-    liftIO $
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase $
           handleResultNoThrow
-      =<< checkNonLocalExitSignal eEnv eNonLocalState "VecSize" . fromIntegral
+      =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecSize" . fromIntegral
       =<< Env.vecSize eEnv (getRawValue vec)

@@ -35,11 +35,13 @@ import Data.ByteString.Unsafe qualified as BSU
 import Data.Some.Newtype
 import Foreign.C.Types
 import Foreign.Ptr
+import Foreign.Ptr.Builder
 
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Env
 import Data.Emacs.Module.Raw.Env.Internal
+import Data.Emacs.Module.Raw.Value (RawValue)
 import Data.Emacs.Module.SymbolName.Internal
 import Emacs.Module.Assert
 import Emacs.Module.EmacsCall
@@ -52,19 +54,21 @@ processCalls
   -> IO ()
 processCalls env reqs =
   withNonLocalState $ \nls ->
-    let go =
-          atomically (readTMQueue reqs) >>= \case
-            Just x  -> withSome x (callEmacs env nls) *> go
-            Nothing -> pure ()
-    in go
+    withBuilderCache 8 $ \cache ->
+      let go =
+            atomically (readTMQueue reqs) >>= \case
+              Just x  -> withSome x (callEmacs (cache) env nls) *> go
+              Nothing -> pure ()
+      in go
 
 callEmacs
   :: WithCallStack
-  => Env
+  => BuilderCache (RawValue b)
+  -> Env
   -> NonLocalState
   -> EmacsCall EmacsRes MVar a
   -> IO ()
-callEmacs env nls = \case
+callEmacs cache env nls = \case
   MakeGlobalRef x out   -> Env.makeGlobalRef env x >>= putMVar out
   FreeGlobalRef x       -> Env.freeGlobalRef env x
 
@@ -73,7 +77,7 @@ callEmacs env nls = \case
   NonLocalExitGet out   ->
     putMVar out =<< Common.nonLocalExitGet env nls
   NonLocalExitSignal callStack sym dat out ->
-    putMVar out =<< Common.nonLocalExitSignal env callStack sym dat
+    putMVar out =<< Common.nonLocalExitSignal cache env callStack sym dat
 
   NonLocalExitThrow tag val -> Env.nonLocalExitThrow env tag val
   NonLocalExitClear         -> Env.nonLocalExitClear env
@@ -85,19 +89,19 @@ callEmacs env nls = \case
       putMVar out func
 
   Funcall func args out -> do
-    withPtrLenNonNull args $ \n args' ->
+    withPtrLenNonNull (coerceBuilderCache cache) args $ \n args' ->
       putMVar out
-        =<< checkNonLocalExitFull env nls
+        =<< checkNonLocalExitFull cache env nls
         =<< Env.funcall env func (fromIntegral n) args'
 
   FuncallPrimitive func args out ->
-    withPtrLenNonNull args $ \n args' ->
+    withPtrLenNonNull (coerceBuilderCache cache) args $ \n args' ->
       putMVar out
-        =<< checkNonLocalExitFull env nls
+        =<< checkNonLocalExitFull cache env nls
         =<< Env.funcallPrimitive env func (fromIntegral n) args'
 
   FuncallPrimitiveUnchecked func args out ->
-    withPtrLenNonNull args $ \n args' ->
+    withPtrLenNonNull (coerceBuilderCache cache) args $ \n args' ->
       putMVar out =<< Env.funcallPrimitive env func (fromIntegral n) args'
 
   Intern sym out ->
@@ -114,7 +118,7 @@ callEmacs env nls = \case
 
   ExtractInteger x out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "ExtractInteger" . fromIntegral
+      =<< checkNonLocalExitSignal cache env nls "ExtractInteger" . fromIntegral
       =<< Env.extractInteger env x
 
   MakeInteger x out ->
@@ -122,14 +126,14 @@ callEmacs env nls = \case
 
   ExtractFloat x out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "ExtractFloat" . (\(CDouble y) -> y)
+      =<< checkNonLocalExitSignal cache env nls "ExtractFloat" . (\(CDouble y) -> y)
       =<< Env.extractFloat env x
 
   MakeFloat x out ->
     putMVar out =<< Env.makeFloat env (CDouble x)
 
   ExtractString x out ->
-    putMVar out =<< Common.extractString env nls x
+    putMVar out =<< Common.extractString cache env nls x
 
   MakeString x out ->
     BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->
@@ -137,7 +141,7 @@ callEmacs env nls = \case
 
   GetUserPtr x out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "GetUserPtr"
+      =<< checkNonLocalExitSignal cache env nls "GetUserPtr"
       =<< Env.getUserPtr env x
 
   MakeUserPtr fin ptr out ->
@@ -145,32 +149,32 @@ callEmacs env nls = \case
 
   SetUserPtr dest ptr out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "SetUserPtr"
+      =<< checkNonLocalExitSignal cache env nls "SetUserPtr"
       =<< Env.setUserPtr env dest ptr
 
   GetUserPtrFinaliser x out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "GetUserPtrFinaliser"
+      =<< checkNonLocalExitSignal cache env nls "GetUserPtrFinaliser"
       =<< Env.getUserFinaliser env x
 
   SetUserPtrFinaliser x fin out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "SetUserPtrFinaliser"
+      =<< checkNonLocalExitSignal cache env nls "SetUserPtrFinaliser"
       =<< Env.setUserFinaliser env x fin
 
   VecGet vec n out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "VecGet"
+      =<< checkNonLocalExitSignal cache env nls "VecGet"
       =<< Env.vecGet env vec (fromIntegral n)
 
   VecSet vec n x out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "VecSet"
+      =<< checkNonLocalExitSignal cache env nls "VecSet"
       =<< Env.vecSet env vec (fromIntegral n) x
 
   VecSize vec out ->
     putMVar out
-      =<< checkNonLocalExitSignal env nls "VecSize" . fromIntegral
+      =<< checkNonLocalExitSignal cache env nls "VecSize" . fromIntegral
       =<< Env.vecSize env vec
 
   ProcessInput -> processInput env

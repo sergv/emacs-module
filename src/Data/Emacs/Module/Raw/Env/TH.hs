@@ -65,7 +65,7 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
       body   = normalB $ do
         funPtrVar <- newName "funPtr"
         [e|liftIO|] `appE` doE
-          [ bindS (varP funPtrVar) $ peekExpr `appE` ([e| Env.toPtr |] `appE` varE envArg)
+          [ bindS (bangP (varP funPtrVar)) $ peekExpr `appE` ([e| Env.toPtr |] `appE` varE envArg)
           , noBindS $ foldl' appE (varE foreignFuncName) (map varE $ funPtrVar : envArg : otherArgs)
           ]
   m    <- newName "m"

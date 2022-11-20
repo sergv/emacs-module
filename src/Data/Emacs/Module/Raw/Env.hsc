@@ -8,6 +8,7 @@
 -- Low-level and, hopefully, low-overhead wrappers around @struct emacs_env@.
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ForeignFunctionInterface   #-}
@@ -109,12 +110,12 @@ isNonTruthy (CBoolean a) = a == 0
 -- | Check wheter passed @emacs_env@ structure has expected size so that
 -- we will be able to access all of its fields.
 isValidEnv :: MonadIO m => Env -> m Bool
-isValidEnv env = liftIO $ do
-  realSize <- (#peek emacs_env, size) (Env.toPtr env)
+isValidEnv !env = liftIO $ do
+  !realSize <- (#peek emacs_env, size) (Env.toPtr env)
   pure $ expectedSize <= realSize
   where
     expectedSize :: CPtrdiff
-    expectedSize = (#size struct emacs_env_28)
+    !expectedSize = (#size struct emacs_env_28)
 
 $(wrapEmacsFunc "makeGlobalRefTH" Unsafe
    [e| (#peek emacs_env, make_global_ref) |]
@@ -126,7 +127,7 @@ makeGlobalRef
   => Env
   -> RawValue p
   -> m (RawValue 'Pinned)
-makeGlobalRef env x =
+makeGlobalRef !env !x =
   liftIO $ makeGlobalRefTH env x
 
 

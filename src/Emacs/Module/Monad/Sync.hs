@@ -80,7 +80,7 @@ import Foreign.Ptr.Builder as PtrBuilder
 data Environment = Environment
   { eEnv           :: Env
   , eNonLocalState :: {-# UNPACK #-} !NonLocalState
-  , eArgsCache     :: {-# UNPACK #-} !(BuilderCache (RawValue 'Unknown))
+  , eArgsCache     :: BuilderCache (RawValue 'Unknown)
   }
 
 -- | Concrete monad for interacting with Emacs. It provides:

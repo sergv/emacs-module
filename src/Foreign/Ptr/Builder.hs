@@ -11,6 +11,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnboxedTuples       #-}
+{-# LANGUAGE UnliftedNewtypes    #-}
 
 module Foreign.Ptr.Builder
   ( Builder
@@ -27,7 +28,6 @@ module Foreign.Ptr.Builder
   , withBuilderCache
   ) where
 
-import Data.Array.Byte
 import Data.Primitive.Types as Prim
 import Emacs.Module.Assert
 import Foreign
@@ -64,8 +64,11 @@ withByteArrayLen
   -> Builder a
   -> (Int# -> ByteArray# -> IO b)
   -> IO b
-withByteArrayLen (BuilderCache (MutableByteArray cache#)) (Builder size f) action =
+withByteArrayLen (BuilderCache cache#) (Builder size f) action =
   emacsAssert (isPowerOfTwo align) "Alignment should be a power of two" $
+  -- IO $ \s1 ->
+  --   let !cacheSize = sizeofMutableByteArray# cache#
+  --   in
   IO $ \s0 ->
     case getSizeofMutableByteArray# cache# s0 of
       (# s1, cacheSize #) ->
@@ -83,9 +86,14 @@ withByteArrayLen (BuilderCache (MutableByteArray cache#)) (Builder size f) actio
                 (# s3, () #) ->
                   case unsafeFreezeByteArray# mbarr# s3 of
                     (# s4, barr# #) ->
-                      case action size barr# of
-                        IO action' ->
-                          keepAlive# barr# s4 action'
+                      -- case action size barr# of
+                      --   IO action' ->
+                      --     case action' s4 of
+                      --       (# s5, res #) ->
+                      --         case touch# barr# s5 of
+                      --           s6 -> (# s6, res #)
+
+                      keepAlive# barr# s4 (unIO (action size barr#))
   where
     !requiredSize  = size *# elemSize
     !(I# elemSize) = Storable.sizeOf    (undefined :: a)
@@ -116,7 +124,7 @@ prim x = Builder 1# $ \addr off ->
       s' -> (# s', () #)
 
 
-newtype BuilderCache a = BuilderCache { _unBuilderCache :: MutableByteArray RealWorld }
+newtype BuilderCache a = BuilderCache { _unBuilderCache :: MutableByteArray# RealWorld }
 
 coerceBuilderCache :: BuilderCache a -> BuilderCache b
 coerceBuilderCache = coerce
@@ -126,7 +134,7 @@ withBuilderCache (I# size) f = do
   IO $ \s0 ->
     case newAlignedPinnedByteArray# (size *# elemSize) align s0 of
       (# s1, mbarr #) ->
-        unIO (f (BuilderCache (MutableByteArray mbarr))) s1
+        keepAlive# mbarr s1 (unIO (f (BuilderCache mbarr)))
   where
     !(I# elemSize) = Storable.sizeOf    (undefined :: a)
     !(I# align)    = Storable.alignment (undefined :: a)

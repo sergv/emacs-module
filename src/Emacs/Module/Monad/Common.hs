@@ -95,6 +95,7 @@ unpackEnumFuncallExitSafe (EnumFuncallExit (CInt !x)) =
       "Unknown value of enum emacs_funcall_exit:" <+> pretty x
     Just y  -> Right y
 
+{-# INLINE nonLocalExitGet #-}
 nonLocalExitGet
   :: WithCallStack
   => Env
@@ -134,6 +135,7 @@ nonLocalExitSignal cache env !emacsSignalOrigin !sym !dat = do
       , emacsSignalInfo
       }
 
+{-# INLINE extractString #-}
 extractString
   :: WithCallStack
   => BuilderCache (RawValue a)
@@ -175,6 +177,7 @@ extractString cache env !nls@NonLocalState{nlsSize} !x = do
          throwIO $ mkEmacsInternalError
            "The copy string contents operation should have never exited via throw"
 
+{-# INLINE checkNonLocalExitSignal #-}
 checkNonLocalExitSignal
   :: WithCallStack
   => BuilderCache (RawValue b)
@@ -201,6 +204,7 @@ checkNonLocalExitSignal cache env !nls !errMsg !res = do
       throwIO $ mkEmacsInternalError $
         "The operation should have never exited via throw:" <> line <> pretty errMsg
 
+{-# INLINE checkNonLocalExitFull #-}
 checkNonLocalExitFull
   :: WithCallStack
   => BuilderCache (RawValue b)

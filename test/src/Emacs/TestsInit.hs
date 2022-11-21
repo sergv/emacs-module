@@ -45,10 +45,10 @@ initialise runtime = do
   runtime' <- Runtime.validateRuntime runtime
   case runtime' of
     Nothing        -> pure false
-    Just runtime'' -> do
-      env <- Runtime.getEnvironment runtime''
-      res <- reportAllErrorsToEmacs env (pure False) $ Async.runEmacsM env initialise'
-      pure $ if res then true else false
+    Just runtime'' ->
+      Runtime.withEnvironment runtime'' $ \env -> do
+        res <- reportAllErrorsToEmacs env (pure False) $ Async.runEmacsM env initialise'
+        pure $ if res then true else false
 
 initialise'
   :: (WithCallStack, MonadEmacs m v)

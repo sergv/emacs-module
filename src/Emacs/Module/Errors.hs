@@ -245,8 +245,8 @@ formatSomeException e =
         indent 2 (pretty (show e))
 
 reportAnyErrorToEmacs :: Env -> SomeException -> IO (RawValue 'Unknown)
-reportAnyErrorToEmacs env e = do
-  nil <- mkNil env
+reportAnyErrorToEmacs env !e = do
+  !nil <- mkNil env
   report formatSomeException env e
   pure nil
 

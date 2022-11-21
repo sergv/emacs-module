@@ -40,7 +40,7 @@ foreign import ccall unsafe "dynamic" emacs_get_environment
   :: FunPtr GetEnvironentType -> GetEnvironentType
 
 validateRuntime :: MonadBase IO m => Ptr Runtime -> m (Maybe Runtime)
-validateRuntime ptr
+validateRuntime !ptr
   | ptr == nullPtr = pure Nothing
   | otherwise      = liftBase $ do
       size <- (#peek struct emacs_runtime, size) ptr

@@ -65,7 +65,8 @@ import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Env
-import Data.Emacs.Module.Raw.Env.Internal
+import Data.Emacs.Module.Raw.Env.Internal (Env, RawFunctionType)
+import Data.Emacs.Module.Raw.Env.Internal qualified as Env
 import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName.Internal
 import Data.Emacs.Module.Value.Internal
@@ -77,7 +78,7 @@ import Foreign.Ptr.Builder as PtrBuilder
 
 
 data Environment = Environment
-  { eEnv           :: {-# UNPACK #-} !Env
+  { eEnv           :: Env
   , eNonLocalState :: {-# UNPACK #-} !NonLocalState
   , eArgsCache     :: {-# UNPACK #-} !(BuilderCache (RawValue 'Unknown))
   }
@@ -157,8 +158,9 @@ runEmacsM eEnv (EmacsM action) =
 
 {-# INLINE withEnv #-}
 withEnv :: (Env -> IO a) -> EmacsM s a
-withEnv f = EmacsM $
-  liftBase . f =<< asks eEnv
+withEnv f = EmacsM $ do
+  Environment{eEnv} <- ask
+  liftBase (f eEnv)
 
 {-# INLINE withEnvCache #-}
 withEnvCache :: (Env -> BuilderCache (RawValue b) -> IO a) -> EmacsM s a
@@ -242,16 +244,17 @@ instance MonadEmacs EmacsM Value where
     -> Doc.Doc
     -> EmacsM s (Value s)
   makeFunction emacsFun doc = withEnv $ \env -> do
-    impl' <- liftBase $ exportToEmacs impl
+    impl' <- liftBase $ Env.exportToEmacs impl
     Doc.useDocAsCString doc $ \doc' -> do
-      func <- Env.makeFunction env minArity maxArity impl' doc' (castFunPtrToPtr (unRawFunction impl'))
-      Env.setFunctionFinalizer env func freeHaskellFunPtrWrapped
+      func <- Env.makeFunction env minArity maxArity impl' doc' (castFunPtrToPtr (Env.unRawFunction impl'))
+      Env.setFunctionFinalizer env func Env.freeHaskellFunPtrWrapped
       pure $ Value func
     where
       (minArity, maxArity) = arities (Proxy @req) (Proxy @opt) (Proxy @rest)
 
       impl :: RawFunctionType 'Unknown ()
-      impl env nargs argsPtr _extraPtr = do
+      impl envPtr nargs argsPtr _extraPtr = do
+        let env = Env.fromPtr envPtr
         Exception.handle (reportAnyErrorToEmacs env) $
           Exception.handle (reportEmacsSignalToEmacs env) $
             Exception.handle (reportEmacsThrowToEmacs env) $

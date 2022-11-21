@@ -65,7 +65,8 @@ import System.IO.Unsafe
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.GetRawValue
-import Data.Emacs.Module.Raw.Env.Internal
+import Data.Emacs.Module.Raw.Env.Internal hiding (Environment)
+import Data.Emacs.Module.Raw.Env.Internal qualified as Env
 import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName.Internal
 import Data.Emacs.Module.Value.Internal
@@ -277,7 +278,8 @@ instance MonadEmacs EmacsM Value where
       (minArity, maxArity) = arities (Proxy @req) (Proxy @opt) (Proxy @rest)
 
       impl :: RawFunctionType 'Unknown ()
-      impl env nargs argsPtr _extraPtr = do
+      impl !envPtr nargs argsPtr _extraPtr = do
+        let env = Env.fromPtr envPtr
         Exception.handle (reportAnyErrorToEmacs env) $
           Exception.handle (reportEmacsSignalToEmacs env) $
             Exception.handle (reportEmacsThrowToEmacs env) $

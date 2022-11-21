@@ -7,14 +7,20 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE DataKinds                #-}
+{-# LANGUAGE EmptyDataDecls           #-}
 {-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE MagicHash                #-}
+{-# LANGUAGE UnliftedFFITypes         #-}
+{-# LANGUAGE UnliftedNewtypes         #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
 
 module Data.Emacs.Module.Raw.Env.Internal
   ( Env(..)
+  , Environment
   , toPtr
+  , fromPtr
   , exportToEmacs
   , RawFunctionType
   , RawFunction(..)
@@ -24,21 +30,25 @@ module Data.Emacs.Module.Raw.Env.Internal
 
 import Foreign
 import Foreign.C.Types
+import GHC.Exts (Addr#, Ptr(..))
 
-import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Value.Internal
 
-import Data.Emacs.Module.NonNullPtr.Internal
-
 -- | Emacs environment, right from the 'emacs-module.h'.
-newtype Env = Env { unEnv :: NonNullPtr Env }
+newtype Env = Env { unEnv# :: Addr# }
+
+data Environment
 
 {-# INLINE toPtr #-}
-toPtr :: Env -> Ptr Env
-toPtr = unNonNullPtr . unEnv
+toPtr :: Env -> Ptr Environment
+toPtr (Env x) = Ptr x
+
+{-# INLINE fromPtr #-}
+fromPtr :: Ptr Environment -> Env
+fromPtr (Ptr x) = Env x
 
 type RawFunctionType o a =
-     Env
+     Ptr Environment
   -> CPtrdiff                -- Number of arguments
   -> Ptr (RawValue 'Regular) -- Actual arguments, always supplied by Emacs so never 'Pinned'.
   -> Ptr a                   -- Extra data

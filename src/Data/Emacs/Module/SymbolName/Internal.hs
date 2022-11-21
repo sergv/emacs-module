@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveTraversable          #-}
@@ -104,10 +105,10 @@ mkSymbolNameCache :: SymbolName -> IO (IORef (Env -> IO (RawValue 'Pinned)))
 mkSymbolNameCache = go
   where
     go :: SymbolName -> IO (IORef (Env -> IO (RawValue 'Pinned)))
-    go name =
-      unsafeFixIO $ \ref ->
+    go !name =
+      unsafeFixIO $ \ ref ->
         newIORef $ \env -> do
-          global <- Raw.makeGlobalRef env =<< reifySymbolRaw env name
+          !global <- Raw.makeGlobalRef env =<< reifySymbolRaw env name
           writeIORef ref $ \_env -> pure global
           pure global
 
@@ -183,4 +184,4 @@ reifySymbol env sym f g = case sym of
           f <$> Raw.funcallPrimitive env funcall' 1 args
 
   CachedSymbol ref _ ->
-    g <$> (($ env) =<< readIORef ref)
+    g <$> ((\k -> k env) =<< readIORef ref)

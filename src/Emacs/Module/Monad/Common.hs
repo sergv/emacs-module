@@ -119,7 +119,7 @@ nonLocalExitSignal
   -> RawValue 'Unknown           -- ^ Error symbol
   -> Builder (RawValue 'Regular) -- ^ Error data
   -> IO EmacsSignal
-nonLocalExitSignal !cache !env !emacsSignalOrigin !sym !dat = do
+nonLocalExitSignal !cache env !emacsSignalOrigin !sym !dat = do
   listSym <- reifySymbolUnknown env Sym.list
   withPtrLenNonNull (coerceBuilderCache cache) dat $ \n args -> do
     dat'            <- Env.funcallPrimitive env listSym (fromIntegral n) args
@@ -182,7 +182,7 @@ checkNonLocalExitSignal
   -> Text
   -> a
   -> IO (EmacsRes EmacsSignal Void a)
-checkNonLocalExitSignal !cache !env !nls !errMsg !res = do
+checkNonLocalExitSignal !cache env !nls !errMsg !res = do
   nonLocalExitGet env nls >>= \ case
     FuncallExitReturn            ->
       pure $ EmacsSuccess res
@@ -207,7 +207,7 @@ checkNonLocalExitFull
   -> NonLocalState
   -> a
   -> IO (EmacsRes EmacsSignal EmacsThrow a)
-checkNonLocalExitFull !cache !env !nls !res =
+checkNonLocalExitFull !cache env !nls !res =
   nonLocalExitGet env nls >>= \case
     FuncallExitReturn            ->
       pure $ EmacsSuccess res
@@ -238,7 +238,7 @@ checkNonLocalExitFull !cache !env !nls !res =
 extractSignalInfo
   :: WithCallStack
   => BuilderCache (RawValue a) -> Env -> RawValue p -> RawValue 'Regular -> IO Text
-extractSignalInfo !cache !env !sym !dat = do
+extractSignalInfo !cache env !sym !dat = do
   cons          <- reifySymbolUnknown env Sym.cons
   dat'          <- withPtrLenNonNull (coerceBuilderCache cache) (foldMap PtrBuilder.storable $ Tuple2 (toUnknown sym, toUnknown dat)) $ \n args ->
     Env.funcallPrimitive env cons (fromIntegral n) args
@@ -261,14 +261,14 @@ extractTextUnsafe
   => Env
   -> RawValue p
   -> IO Text
-extractTextUnsafe !env !x = TE.decodeUtf8With TE.lenientDecode <$> extractStringUnsafe env x
+extractTextUnsafe env !x = TE.decodeUtf8With TE.lenientDecode <$> extractStringUnsafe env x
 
 extractStringUnsafe
   :: WithCallStack
   => Env
   -> RawValue p
   -> IO BS.ByteString
-extractStringUnsafe !env !x = do
+extractStringUnsafe env !x = do
   allocaNonNull $ \pSize -> do
     res <- Env.copyStringContents env x nullPtr pSize
     if Env.isNonTruthy res
@@ -290,7 +290,7 @@ extractStringUnsafe !env !x = do
         throwIO $ mkEmacsInternalError "Failed to unpack string"
 
 processInput :: Env -> IO ()
-processInput !env = do
+processInput env = do
   Env.EnumProcessInputResult (CInt x) <- Env.processInput env
   case processInputResultFromNum x of
     Nothing                   ->

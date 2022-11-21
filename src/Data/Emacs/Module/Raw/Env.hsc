@@ -8,11 +8,12 @@
 -- Low-level and, hopefully, low-overhead wrappers around @struct emacs_env@.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DataKinds                #-}
-{-# LANGUAGE FlexibleContexts         #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE ScopedTypeVariables      #-}
-{-# LANGUAGE TemplateHaskell          #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE ForeignFunctionInterface   #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
 
@@ -67,6 +68,7 @@ import Control.Monad.IO.Class
 import Data.Coerce
 import Foreign
 import Foreign.C
+import Prettyprinter
 
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal as Env
@@ -79,7 +81,14 @@ import Data.Emacs.Module.NonNullPtr.Internal
 #include <emacs-module.h>
 
 newtype EnumFuncallExit = EnumFuncallExit { unEnumFuncallExit :: CInt }
+
+instance Pretty EnumFuncallExit where
+  pretty (EnumFuncallExit (CInt x)) = pretty x
+
 newtype EnumProcessInputResult = EnumProcessInputResult { unEnumProcessInputResult :: CInt }
+
+instance Pretty EnumProcessInputResult where
+  pretty (EnumProcessInputResult (CInt x)) = pretty x
 
 -- | A wrapper around C value that denotes true or false.
 newtype CBoolean = CBoolean (#type bool)

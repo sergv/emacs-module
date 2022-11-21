@@ -20,6 +20,7 @@ module Data.Emacs.Module.Env.Functions
   ( FuncallExit(..)
   , funcallExitToNum
   , funcallExitFromNum
+  , foldFuncallExitFromNum
   ) where
 
 import Data.Data (Data)
@@ -55,4 +56,12 @@ funcallExitFromNum = \case
   (#const emacs_funcall_exit_signal) -> Just $ FuncallExitSignal ()
   (#const emacs_funcall_exit_throw)  -> Just $ FuncallExitThrow ()
   _                                  -> Nothing
+
+{-# INLINE foldFuncallExitFromNum #-}
+foldFuncallExitFromNum :: (Eq a, Num a) => a -> b -> (FuncallExit () -> b) -> b
+foldFuncallExitFromNum x def f = case x of
+  (#const emacs_funcall_exit_return) -> f FuncallExitReturn
+  (#const emacs_funcall_exit_signal) -> f $ FuncallExitSignal ()
+  (#const emacs_funcall_exit_throw)  -> f $ FuncallExitThrow ()
+  _                                  -> def
 

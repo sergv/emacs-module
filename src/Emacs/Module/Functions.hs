@@ -299,17 +299,31 @@ setcdr
   -> m s ()
 setcdr x y = funcallPrimitiveSym_ Sym.setcdr (Tuple2 (x, y))
 
+-- {-# INLINE makeList #-}
+-- -- | Construct vanilla Emacs list from a Haskell list.
+-- makeList
+--   :: (WithCallStack, MonadEmacs m v, Foldable f)
+--   => f (v s)
+--   -> m s (v s)
+-- makeList = unfoldEmacsListWith (pure . go) . toList
+--   where
+--     go = \case
+--       []     -> Nothing
+--       y : ys -> Just (y, ys)
+
 {-# INLINE makeList #-}
 -- | Construct vanilla Emacs list from a Haskell list.
 makeList
   :: (WithCallStack, MonadEmacs m v, Foldable f)
   => f (v s)
   -> m s (v s)
-makeList = unfoldEmacsListWith (pure . go) . toList
+makeList xs = do
+  nilVal <- nil
+  mkListLoop (reverse (toList xs)) nilVal
   where
-    go = \case
-      []     -> Nothing
-      y : ys -> Just (y, ys)
+    mkListLoop ys res = case ys of
+      []     -> pure res
+      z : zs -> mkListLoop zs =<< cons z res
 
 {-# INLINE extractList #-}
 -- | Extract vanilla Emacs list as Haskell list.
@@ -326,13 +340,13 @@ extractListWith
   => (v s -> m s a)
   -> v s
   -> m s [a]
-extractListWith f = go
+extractListWith f = extractListLoop
   where
-    go xs = unsafeInterleave $ do
+    extractListLoop xs = unsafeInterleave $ do
       nonNil <- isNotNil xs
       if nonNil
       then
-        (:) <$> (f =<< car xs) <*> (go =<< cdr xs)
+        (:) <$> (f =<< car xs) <*> (extractListLoop =<< cdr xs)
       else
         pure []
 

@@ -170,6 +170,7 @@ reifySymbol env sym f g = case sym of
     f <$> Raw.intern env addr
   DynamicSymbol str
     -- If it's onyl ASCII then can run FFI intern, otherwise have to go via funcall
+    -- TODO: cache this check
     | T.all (\c -> ord c < 128) str ->
       f <$> T.withCString str (Raw.intern env)
     | otherwise                    ->

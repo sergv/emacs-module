@@ -47,16 +47,19 @@ import Control.Monad.Interleave
 import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
+import Data.Array.Byte
 import Data.ByteString qualified as BS
 import Data.ByteString.Unsafe qualified as BSU
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
+import Data.IORef
 import Data.Int
 import Data.Kind
 import Data.Proxy
 import Data.Void
 import Foreign.C.Types
 import Foreign.Ptr
+import GHC.Exts (RealWorld)
 import GHC.ForeignPtr
 import GHC.Stack (callStack)
 
@@ -77,8 +80,9 @@ import Foreign.Ptr.Builder as PtrBuilder
 
 
 data Environment = Environment
-  { eEnv           :: !Env
-  , eNonLocalState :: !NonLocalState
+  { eEnv           :: {-# UNPACK #-} !Env
+  , eNonLocalState :: {-# UNPACK #-} !NonLocalState
+  , eArgs          :: {-# UNPACK #-} !(IORef (MutableByteArray RealWorld))
   }
 
 -- | Concrete monad for interacting with Emacs. It provides:
@@ -97,20 +101,27 @@ newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment I
     ( Functor
     , Applicative
     , Monad
-    , MonadIO
     , Catch.MonadThrow
     , Catch.MonadCatch
     , Catch.MonadMask
-    , MonadBase IO
     , MonadFix
     , PrimMonad
     )
 
 instance MonadInterleave (EmacsM s) where
   {-# INLINE unsafeInterleave #-}
-  unsafeInterleave (EmacsM action) = EmacsM $ do
-    env <- ask
-    liftIO $ unsafeInterleave $ runReaderT action env
+  unsafeInterleave = id
+  -- unsafeInterleave (EmacsM action) = EmacsM $ do
+  --   env <- ask
+  --   liftIO $ unsafeInterleave $ runReaderT action env
+
+instance MonadIO (EmacsM s) where
+  {-# INLINE liftIO #-}
+  liftIO = EmacsM . lift
+
+instance MonadBase IO (EmacsM s) where
+  {-# INLINE liftBase #-}
+  liftBase = EmacsM . lift
 
 instance MonadBaseControl IO (EmacsM s) where
   type StM (EmacsM s) a = StM (ReaderT Environment IO) a
@@ -185,8 +196,9 @@ instance MonadEmacs EmacsM Value where
     => EmacsM s (FuncallExit (Value s, Value s))
   nonLocalExitGet = EmacsM $ do
     Environment{eEnv, eNonLocalState} <- ask
-    res <- liftBase $ Common.nonLocalExitGet eEnv eNonLocalState
-    pure $ coerce res
+    liftBase $ do
+      res <- Common.nonLocalExitGet eEnv eNonLocalState
+      pure $ coerce res
 
   nonLocalExitSignal
     :: (WithCallStack, Foldable f)

@@ -90,7 +90,7 @@ unpackEnumFuncallExitSafe (EnumFuncallExit (CInt x)) =
   case funcallExitFromNum x of
     Nothing -> Left $ mkEmacsInternalError $
       "Unknown value of enum emacs_funcall_exit:" <+> pretty x
-    Just y -> Right y
+    Just y  -> Right y
 
 nonLocalExitGet
   :: WithCallStack
@@ -98,9 +98,16 @@ nonLocalExitGet
   -> NonLocalState
   -> IO (FuncallExit (RawValue 'Regular, RawValue 'Regular))
 nonLocalExitGet env NonLocalState{nlsErr, nlsData} = do
-  x <- unpackEnumFuncallExit =<< Env.nonLocalExitGet env nlsErr nlsData
-  for x $ \(_ :: ()) ->
-    (,) <$> peek (unNonNullPtr nlsErr) <*> peek (unNonNullPtr nlsData)
+  exit <- Env.nonLocalExitGet env nlsErr nlsData
+  foldFuncallExitFromNum
+    (unEnumFuncallExit exit)
+    (throwIO $ mkEmacsInternalError $ "Unknown value of enum emacs_funcall_exit:" <+> pretty exit)
+    (\x ->
+      for x $ \(_ :: ()) ->
+        (,) <$> peek (unNonNullPtr nlsErr) <*> peek (unNonNullPtr nlsData))
+  -- x <- unpackEnumFuncallExit =<< Env.nonLocalExitGet env nlsErr nlsData
+  -- for x $ \(_ :: ()) ->
+  --   (,) <$> peek (unNonNullPtr nlsErr) <*> peek (unNonNullPtr nlsData)
 
 {-# INLINE nonLocalExitSignal #-}
 nonLocalExitSignal

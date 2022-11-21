@@ -70,13 +70,15 @@ data EmacsRes s t a
 data NonLocalState = NonLocalState
   { nlsErr  :: {-# UNPACK #-} !(NonNullPtr (RawValue 'Regular))
   , nlsData :: {-# UNPACK #-} !(NonNullPtr (RawValue 'Regular))
+  , nlsSize :: {-# UNPACK #-} !(NonNullPtr CPtrdiff)
   }
 
 withNonLocalState :: (NonLocalState -> IO a) -> IO a
 withNonLocalState f =
   allocaNonNull $ \ !nlsErr ->
     allocaNonNull $ \ !nlsData ->
-      f NonLocalState{nlsErr, nlsData}
+      allocaNonNull $ \ !nlsSize ->
+        f NonLocalState{nlsErr, nlsData, nlsSize}
 
 unpackEnumFuncallExit
   :: WithCallStack
@@ -139,40 +141,39 @@ extractString
   -> NonLocalState
   -> RawValue p
   -> IO (EmacsRes EmacsSignal Void BS.ByteString)
-extractString !cache !env !nls !x = do
-  allocaNonNull $ \ !pSize -> do
-    res <- Env.copyStringContents env x nullPtr pSize
-    if Env.isNonTruthy res
-    then do
-      Env.nonLocalExitClear env
-      throwIO $ mkEmacsInternalError
-        "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
+extractString !cache env !nls@NonLocalState{nlsSize} !x = do
+  res <- Env.copyStringContents env x nullPtr nlsSize
+  if Env.isNonTruthy res
+  then do
+    Env.nonLocalExitClear env
+    throwIO $ mkEmacsInternalError
+      "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
+  else do
+    !size          <- fromIntegral <$> peek (unNonNullPtr nlsSize)
+    !fp            <- BSI.mallocByteString size
+    !copyPerformed <- unsafeWithForeignPtr fp $ \ptr ->
+      Env.copyStringContents env x (castPtr ptr) nlsSize
+    if Env.isTruthy copyPerformed
+    then
+      -- Should subtract 1 from size to avoid NULL terminator at the end.
+      pure $ EmacsSuccess $ BSI.BS fp (size - 1)
     else do
-      !size          <- fromIntegral <$> peek (unNonNullPtr pSize)
-      !fp            <- BSI.mallocByteString size
-      !copyPerformed <- unsafeWithForeignPtr fp $ \ptr ->
-        Env.copyStringContents env x (castPtr ptr) pSize
-      if Env.isTruthy copyPerformed
-      then
-        -- Should subtract 1 from size to avoid NULL terminator at the end.
-        pure $ EmacsSuccess $ BSI.BS fp (size - 1)
-      else do
-       nonLocalExitGet env nls >>= \case
-         FuncallExitSignal (sym, dat) -> do
-           -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
-           Env.nonLocalExitClear env
-           emacsSignalInfo <- extractSignalInfo cache env sym dat
-           pure $ EmacsExitSignal $ EmacsSignal
-             { emacsSignalSym    = toUnknown sym
-             , emacsSignalData   = dat
-             , emacsSignalOrigin = callStack
-             , emacsSignalInfo
-             }
-         FuncallExitReturn            ->
-           throwIO $ mkEmacsInternalError "Failed to unpack string"
-         FuncallExitThrow{} ->
-           throwIO $ mkEmacsInternalError
-             "The copy string contents operation should have never exited via throw"
+     nonLocalExitGet env nls >>= \case
+       FuncallExitSignal (sym, dat) -> do
+         -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
+         Env.nonLocalExitClear env
+         emacsSignalInfo <- extractSignalInfo cache env sym dat
+         pure $ EmacsExitSignal $ EmacsSignal
+           { emacsSignalSym    = toUnknown sym
+           , emacsSignalData   = dat
+           , emacsSignalOrigin = callStack
+           , emacsSignalInfo
+           }
+       FuncallExitReturn            ->
+         throwIO $ mkEmacsInternalError "Failed to unpack string"
+       FuncallExitThrow{} ->
+         throwIO $ mkEmacsInternalError
+           "The copy string contents operation should have never exited via throw"
 
 checkNonLocalExitSignal
   :: WithCallStack

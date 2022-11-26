@@ -17,7 +17,6 @@ module Foreign.Ptr.Builder
   ( Builder
   , withByteArrayLen
   , withPtrLen
-  -- , withPtrUnaligned
   , storable
   , prim
   , Int#
@@ -104,10 +103,6 @@ withPtrLen cache b action =
   withByteArrayLen cache b $ \size barr ->
     action (I# size) (Ptr (byteArrayContents# barr))
 
-
--- {-# INLINE storable #-}
--- storable :: Storable a => a -> Builder
--- storable x = Builder (Storable.sizeOf x) $ \ptr off -> pokeByteOff (castPtr ptr) off x
 
 {-# INLINE storable #-}
 storable :: Storable a => a -> Builder a

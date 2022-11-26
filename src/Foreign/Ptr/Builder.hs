@@ -66,34 +66,31 @@ withByteArrayLen
   -> IO b
 withByteArrayLen (BuilderCache cache#) (Builder size f) action =
   emacsAssert (isPowerOfTwo align) "Alignment should be a power of two" $
-  -- IO $ \s1 ->
-  --   let !cacheSize = sizeofMutableByteArray# cache#
-  --   in
   IO $ \s0 ->
     case getSizeofMutableByteArray# cache# s0 of
       (# s1, cacheSize #) ->
-        if isTrue# (cacheSize >=# requiredSize)
-        then
-          case unIO (f (mutableByteArrayContents# cache#) 0#) s1 of
-            (# s2, () #) ->
-              case unsafeFreezeByteArray# cache# s2 of
-                (# s3, barr# #) ->
-                  unIO (action size barr#) s3
-        else
-          case newAlignedPinnedByteArray# requiredSize align s1 of
-            (# s2, mbarr# #) ->
-              case unIO (f (mutableByteArrayContents# mbarr#) 0#) s2 of
-                (# s3, () #) ->
-                  case unsafeFreezeByteArray# mbarr# s3 of
-                    (# s4, barr# #) ->
-                      -- case action size barr# of
-                      --   IO action' ->
-                      --     case action' s4 of
-                      --       (# s5, res #) ->
-                      --         case touch# barr# s5 of
-                      --           s6 -> (# s6, res #)
+        let !(# sLast1, barr# #) =
+              if isTrue# (cacheSize >=# requiredSize)
+              then
+                case unIO (f (mutableByteArrayContents# cache#) 0#) s1 of
+                  (# s2, () #) ->
+                    unsafeFreezeByteArray# cache# s2
+              else
+                case newAlignedPinnedByteArray# requiredSize align s1 of
+                  (# s2, mbarr# #) ->
+                    case unIO (f (mutableByteArrayContents# mbarr#) 0#) s2 of
+                      (# s3, () #) ->
+                        unsafeFreezeByteArray# mbarr# s3
 
-                      keepAlive# barr# s4 (unIO (action size barr#))
+        in
+          -- keepAlive# barr# sLast1 (unIO (action size barr#))
+          -- Touch is measurably faster but unsound if the action diverges.
+          case unIO (action size barr#) sLast1 of
+            (# sLast2, res #) ->
+              case touch# barr# sLast2 of
+                sLast3 -> (# sLast3, res #)
+
+
   where
     !requiredSize  = size *# elemSize
     !(I# elemSize) = Storable.sizeOf    (undefined :: a)

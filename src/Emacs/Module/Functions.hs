@@ -28,9 +28,7 @@ module Emacs.Module.Functions
     -- * Haskell<->Emacs datatype conversions
   , extractInt
   , makeInt
-  , extractText
   , makeText
-  , extractShortByteString
   , makeShortByteString
   , extractBool
   , makeBool
@@ -72,7 +70,6 @@ import Data.Primitive.PrimArray
 import Data.Primitive.Types
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
-import Data.Text.Encoding.Error qualified as TE
 import Data.Tuple.Homogenous
 import Data.Vector.Unboxed qualified as U
 import Foreign.StablePtr
@@ -168,27 +165,12 @@ makeInt
   :: (WithCallStack, MonadEmacs m v) => Int -> m s (v s)
 makeInt = makeWideInteger . fromIntegral
 
-{-# INLINE extractText #-}
--- | Extract string contents as 'Text' from an Emacs value.
-extractText
-  :: (WithCallStack, MonadEmacs m v)
-  => v s -> m s Text
-extractText x = TE.decodeUtf8With TE.lenientDecode <$> extractString x
-
 {-# INLINE makeText #-}
 -- | Convert a Text into an Emacs string value.
 makeText
   :: (WithCallStack, MonadEmacs m v)
   => Text -> m s (v s)
 makeText = makeString . TE.encodeUtf8
-
-
-{-# INLINE extractShortByteString #-}
--- | Extract string contents as 'ShortByteString' from an Emacs value.
-extractShortByteString
-  :: (WithCallStack, MonadEmacs m v)
-  => v s -> m s ShortByteString
-extractShortByteString = fmap BSS.toShort . extractString
 
 {-# INLINE makeShortByteString #-}
 -- | Convert a ShortByteString into an Emacs string value.

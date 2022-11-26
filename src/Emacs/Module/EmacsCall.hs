@@ -18,8 +18,10 @@ module Emacs.Module.EmacsCall
   ) where
 
 import Data.ByteString qualified as BS
+import Data.ByteString.Short (ShortByteString)
 import Data.Int
 import Data.Kind
+import Data.Text (Text)
 import Data.Void
 import Foreign.ForeignPtr
 import Foreign.Ptr
@@ -141,10 +143,14 @@ data EmacsCall (f :: Type -> Type -> Type -> Type) (out :: Type -> Type) (res ::
     -> out (RawValue 'Regular)
     -> EmacsCall f out (RawValue 'Regular)
 
-  ExtractString
+  ExtractText
     :: RawValue p
-    -> out (f EmacsSignal Void BS.ByteString)
-    -> EmacsCall f out (f EmacsSignal Void BS.ByteString)
+    -> out (f EmacsSignal Void Text)
+    -> EmacsCall f out (f EmacsSignal Void Text)
+  ExtractShortByteString
+    :: RawValue p
+    -> out (f EmacsSignal Void ShortByteString)
+    -> EmacsCall f out (f EmacsSignal Void ShortByteString)
   MakeString
     :: !BS.ByteString
     -> out (RawValue 'Regular)

@@ -50,11 +50,13 @@ import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
+import Data.ByteString.Short (ShortByteString)
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Int
 import Data.Kind
 import Data.Proxy
+import Data.Text (Text)
 import Data.Void
 import Foreign.Ptr (Ptr)
 import Foreign.Ptr.Builder qualified as PtrBuilder
@@ -365,9 +367,13 @@ instance MonadEmacs EmacsM Value where
   makeDouble =
     coerce . callWithResult . MakeFloat
 
-  extractString :: WithCallStack => Value s -> EmacsM s BS.ByteString
-  extractString =
-    callWithResultMayFailSignal . ExtractString . getRawValue
+  extractText :: WithCallStack => Value s -> EmacsM s Text
+  extractText =
+    callWithResultMayFailSignal . ExtractText . getRawValue
+
+  extractShortByteString :: WithCallStack => Value s -> EmacsM s ShortByteString
+  extractShortByteString =
+    callWithResultMayFailSignal . ExtractShortByteString . getRawValue
 
   makeString :: WithCallStack => BS.ByteString -> EmacsM s (Value s)
   makeString =

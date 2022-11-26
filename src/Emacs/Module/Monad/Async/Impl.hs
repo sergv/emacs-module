@@ -132,8 +132,11 @@ callEmacs cache env nls = \case
   MakeFloat x out ->
     putMVar out =<< Env.makeFloat env (CDouble x)
 
-  ExtractString x out ->
-    putMVar out =<< Common.extractString cache env nls x
+  ExtractText x out ->
+    putMVar out =<< Common.extractText cache env nls x
+
+  ExtractShortByteString x out ->
+    putMVar out =<< Common.extractShortByteString cache env nls x
 
   MakeString x out ->
     BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->

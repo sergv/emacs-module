@@ -11,9 +11,11 @@
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UnboxedTuples       #-}
 
 module Emacs.Module.Monad.Common
   ( EmacsRes(..)
@@ -23,28 +25,29 @@ module Emacs.Module.Monad.Common
   , unpackEnumFuncallExitSafe
   , Emacs.Module.Monad.Common.nonLocalExitGet
   , nonLocalExitSignal
-  , extractString
+  , extractText
+  , extractShortByteString
   , checkNonLocalExitSignal
   , checkNonLocalExitFull
   , extractSignalInfo
   , extractTextUnsafe
-  , extractStringUnsafe
   , processInput
   ) where
 
 import Control.Exception
-import Data.ByteString qualified as BS
-import Data.ByteString.Internal qualified as BSI
+import Data.ByteString.Short (ShortByteString)
+import Data.ByteString.Short qualified as SBS
 import Data.Text (Text)
-import Data.Text.Encoding qualified as TE
-import Data.Text.Encoding.Error qualified as TE
+import Data.Text.Array qualified as TA
+import Data.Text.Internal qualified as T
 import Data.Traversable
 import Data.Tuple.Homogenous
 import Data.Void
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
-import GHC.ForeignPtr
+import GHC.Exts
+import GHC.IO
 import GHC.Stack (CallStack, callStack)
 import Prettyprinter
 
@@ -135,15 +138,15 @@ nonLocalExitSignal cache env !emacsSignalOrigin !sym !dat = do
       , emacsSignalInfo
       }
 
-{-# INLINE extractString #-}
-extractString
+{-# INLINE extractText #-}
+extractText
   :: WithCallStack
   => BuilderCache (RawValue a)
   -> Env
   -> NonLocalState
   -> RawValue p
-  -> IO (EmacsRes EmacsSignal Void BS.ByteString)
-extractString cache env !nls@NonLocalState{nlsSize} !x = do
+  -> IO (EmacsRes EmacsSignal Void Text)
+extractText cache env !nls@NonLocalState{nlsSize} !x = do
   res <- Env.copyStringContents env x nullPtr nlsSize
   if Env.isNonTruthy res
   then do
@@ -151,31 +154,81 @@ extractString cache env !nls@NonLocalState{nlsSize} !x = do
     throwIO $ mkEmacsInternalError
       "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
   else do
-    !size          <- fromIntegral <$> peek (unNonNullPtr nlsSize)
-    !fp            <- BSI.mallocByteString size
-    !copyPerformed <- unsafeWithForeignPtr fp $ \ptr ->
-      Env.copyStringContents env x (castPtr ptr) nlsSize
-    if Env.isTruthy copyPerformed
-    then
-      -- Should subtract 1 from size to avoid NULL terminator at the end.
-      pure $ EmacsSuccess $ BSI.BS fp (size - 1)
-    else do
-     nonLocalExitGet env nls >>= \case
-       FuncallExitSignal (sym, dat) -> do
-         -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
-         Env.nonLocalExitClear env
-         emacsSignalInfo <- extractSignalInfo cache env sym dat
-         pure $ EmacsExitSignal $ EmacsSignal
-           { emacsSignalSym    = toUnknown sym
-           , emacsSignalData   = dat
-           , emacsSignalOrigin = callStack
-           , emacsSignalInfo
-           }
-       FuncallExitReturn            ->
-         throwIO $ mkEmacsInternalError "Failed to unpack string"
-       FuncallExitThrow{} ->
-         throwIO $ mkEmacsInternalError
-           "The copy string contents operation should have never exited via throw"
+    !size@(I# size#) <- fromIntegral <$> peek (unNonNullPtr nlsSize)
+    IO $ \s1 -> case newPinnedByteArray# size# s1 of
+      (# s2, mbarr #) -> (\k -> k s2) (unIO (do
+        !copyPerformed <- Env.copyStringContents env x (Ptr (mutableByteArrayContents# mbarr)) nlsSize
+        if Env.isTruthy copyPerformed
+        then
+          IO $ \s3 ->
+            case unsafeFreezeByteArray# mbarr s3 of
+              (# s4, barr #) ->
+                -- Should subtract 1 from size to avoid NULL terminator at the end.
+                (# s4, EmacsSuccess $ T.Text (TA.ByteArray barr) 0 (size - 1) #)
+        else
+         nonLocalExitGet env nls >>= \case
+           FuncallExitSignal (sym, dat) -> do
+             -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
+             Env.nonLocalExitClear env
+             emacsSignalInfo <- extractSignalInfo cache env sym dat
+             pure $ EmacsExitSignal $ EmacsSignal
+               { emacsSignalSym    = toUnknown sym
+               , emacsSignalData   = dat
+               , emacsSignalOrigin = callStack
+               , emacsSignalInfo
+               }
+           FuncallExitReturn            ->
+             throwIO $ mkEmacsInternalError "Failed to unpack string"
+           FuncallExitThrow{} ->
+             throwIO $ mkEmacsInternalError
+               "The copy string contents operation should have never exited via throw"))
+
+{-# INLINE extractShortByteString #-}
+extractShortByteString
+  :: WithCallStack
+  => BuilderCache (RawValue a)
+  -> Env
+  -> NonLocalState
+  -> RawValue p
+  -> IO (EmacsRes EmacsSignal Void ShortByteString)
+extractShortByteString cache env !nls@NonLocalState{nlsSize} !x = do
+  res <- Env.copyStringContents env x nullPtr nlsSize
+  if Env.isNonTruthy res
+  then do
+    Env.nonLocalExitClear env
+    throwIO $ mkEmacsInternalError
+      "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
+  else do
+    !(I# size#) <- fromIntegral <$> peek (unNonNullPtr nlsSize)
+    IO $ \s1 -> case newPinnedByteArray# size# s1 of
+      (# s2, mbarr #) -> (\k -> k s2) (unIO (do
+        !copyPerformed <- Env.copyStringContents env x (Ptr (mutableByteArrayContents# mbarr)) nlsSize
+        if Env.isTruthy copyPerformed
+        then
+          IO $ \s3 ->
+            -- Should subtract 1 from size to avoid NULL terminator at the end.
+            case shrinkMutableByteArray# mbarr (size# -# 1#) s3 of
+              s4 ->
+                case unsafeFreezeByteArray# mbarr s4 of
+                  (# s5, barr #) ->
+                    (# s5, EmacsSuccess $ SBS.SBS barr #)
+        else
+         nonLocalExitGet env nls >>= \case
+           FuncallExitSignal (sym, dat) -> do
+             -- Important to clean up so that we can still call Emacs functions to make nil return value, etc
+             Env.nonLocalExitClear env
+             emacsSignalInfo <- extractSignalInfo cache env sym dat
+             pure $ EmacsExitSignal $ EmacsSignal
+               { emacsSignalSym    = toUnknown sym
+               , emacsSignalData   = dat
+               , emacsSignalOrigin = callStack
+               , emacsSignalInfo
+               }
+           FuncallExitReturn            ->
+             throwIO $ mkEmacsInternalError "Failed to unpack string"
+           FuncallExitThrow{} ->
+             throwIO $ mkEmacsInternalError
+               "The copy string contents operation should have never exited via throw"))
 
 {-# INLINE checkNonLocalExitSignal #-}
 checkNonLocalExitSignal
@@ -238,8 +291,6 @@ checkNonLocalExitFull cache env !nls !res =
         , emacsThrowOrigin = callStack
         }
 
-
-
 extractSignalInfo
   :: WithCallStack
   => BuilderCache (RawValue a) -> Env -> RawValue p -> RawValue 'Regular -> IO Text
@@ -266,14 +317,7 @@ extractTextUnsafe
   => Env
   -> RawValue p
   -> IO Text
-extractTextUnsafe env !x = TE.decodeUtf8With TE.lenientDecode <$> extractStringUnsafe env x
-
-extractStringUnsafe
-  :: WithCallStack
-  => Env
-  -> RawValue p
-  -> IO BS.ByteString
-extractStringUnsafe env !x = do
+extractTextUnsafe env !x = do
   allocaNonNull $ \pSize -> do
     res <- Env.copyStringContents env x nullPtr pSize
     if Env.isNonTruthy res
@@ -282,17 +326,20 @@ extractStringUnsafe env !x = do
       throwIO $ mkEmacsInternalError
         "Failed to obtain size when unpacking string. Probable cause: emacs object is not a string."
     else do
-      size          <- fromIntegral <$> peek (unNonNullPtr pSize)
-      fp            <- BSI.mallocByteString size
-      copyPerformed <- unsafeWithForeignPtr fp $ \ptr ->
-        Env.copyStringContents env x (castPtr ptr) pSize
-      if Env.isTruthy copyPerformed
-      then
-        -- Should subtract 1 from size to avoid NULL terminator at the end.
-        pure $ BSI.BS fp (size - 1)
-      else do
-        Env.nonLocalExitClear env
-        throwIO $ mkEmacsInternalError "Failed to unpack string"
+      !size@(I# size#) <- fromIntegral <$> peek (unNonNullPtr pSize)
+      IO $ \s1 -> case newPinnedByteArray# size# s1 of
+        (# s2, mbarr #) -> (\k -> k s2) (unIO (do
+          !copyPerformed <- Env.copyStringContents env x (Ptr (mutableByteArrayContents# mbarr)) pSize
+          if Env.isTruthy copyPerformed
+          then
+            IO $ \s3 ->
+              case unsafeFreezeByteArray# mbarr s3 of
+                (# s4, barr #) ->
+                  -- Should subtract 1 from size to avoid NULL terminator at the end.
+                  (# s4, T.Text (TA.ByteArray barr) 0 (size -  1) #)
+          else do
+            Env.nonLocalExitClear env
+            throwIO $ mkEmacsInternalError "Failed to unpack string"))
 
 processInput :: Env -> IO ()
 processInput env = do

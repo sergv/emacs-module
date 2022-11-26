@@ -25,8 +25,10 @@ module Emacs.Module.Monad.Class
 import Control.Monad.Interleave
 import Control.Monad.Primitive
 import Data.ByteString qualified as BS
+import Data.ByteString.Short qualified as BSS
 import Data.Int
 import Data.Kind
+import Data.Text (Text)
 import Data.Vector.Unboxed qualified as U
 import Foreign.ForeignPtr (FinalizerPtr)
 import Foreign.Ptr (Ptr)
@@ -164,7 +166,10 @@ class (forall s. Monad (m s), forall s. MonadInterleave (m s), forall s. U.Unbox
   makeDouble :: WithCallStack => Double -> m s (v s)
 
   -- | Extract string contents from an Emacs value.
-  extractString :: WithCallStack => v s -> m s BS.ByteString
+  extractText :: WithCallStack => v s -> m s Text
+
+  -- | Extract string contents from an Emacs value.
+  extractShortByteString :: WithCallStack => v s -> m s BSS.ShortByteString
 
   -- | Convert a utf8-encoded ByteString into an Emacs value.
   makeString :: WithCallStack => BS.ByteString -> m s (v s)

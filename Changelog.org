@@ -30,6 +30,8 @@
 
 - ~funcall~ and ~funcallPrimitive~ now accept any emacs value function rather than a symbol only
 
+- ~extractString~ removed, ~extractText~ is now part of ~MonadEmacs~ typeclass
+
 * 0.1.1.1
 
 - Fix build with GHC 9.0+

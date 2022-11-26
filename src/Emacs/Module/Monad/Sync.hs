@@ -48,12 +48,14 @@ import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.ByteString qualified as BS
+import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Unsafe qualified as BSU
 import Data.Coerce
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Int
 import Data.Kind
 import Data.Proxy
+import Data.Text (Text)
 import Data.Void
 import Foreign.C.Types
 import Foreign.Ptr
@@ -349,12 +351,19 @@ instance MonadEmacs EmacsM Value where
   makeDouble x = withEnv $ \env ->
     coerce $ Env.makeFloat @IO env (CDouble x)
 
-  extractString :: WithCallStack => Value s -> EmacsM s BS.ByteString
-  extractString x = EmacsM $ do
+  extractText :: WithCallStack => Value s -> EmacsM s Text
+  extractText x = EmacsM $ do
     Environment{eEnv, eNonLocalState, eArgsCache} <- ask
     liftBase
       $   handleResultNoThrow
-      =<< Common.extractString (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
+      =<< Common.extractText (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
+
+  extractShortByteString :: WithCallStack => Value s -> EmacsM s ShortByteString
+  extractShortByteString x = EmacsM $ do
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
+      $   handleResultNoThrow
+      =<< Common.extractShortByteString (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
 
   makeString :: WithCallStack => BS.ByteString -> EmacsM s (Value s)
   makeString x = withEnv $ \env ->

@@ -110,10 +110,9 @@ newtype EmacsM (s :: k) (a :: Type) = EmacsM { unEmacsM :: ReaderT Environment I
 
 instance MonadInterleave (EmacsM s) where
   {-# INLINE unsafeInterleave #-}
-  unsafeInterleave = id
-  -- unsafeInterleave (EmacsM action) = EmacsM $ do
-  --   env <- ask
-  --   liftBase $ unsafeInterleave $ runReaderT action env
+  unsafeInterleave (EmacsM action) = EmacsM $ do
+    env <- ask
+    liftBase $ unsafeInterleave $ runReaderT action env
 
 instance MonadIO (EmacsM s) where
   {-# INLINE liftIO #-}

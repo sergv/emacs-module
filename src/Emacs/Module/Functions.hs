@@ -33,8 +33,9 @@ module Emacs.Module.Functions
   , extractBool
   , makeBool
     -- * Vectors
-  , extractVector
-  , extractVectorAsPrimArray
+  , extractVectorWith
+  , extractVectorMutableWith
+  , extractVectorAsPrimArrayWith
   , makeVector
   , vconcat2
     -- * Lists
@@ -63,6 +64,7 @@ module Emacs.Module.Functions
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Interleave
+import Control.Monad.Primitive (PrimState)
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as BSS
 import Data.Foldable
@@ -71,7 +73,8 @@ import Data.Primitive.Types
 import Data.Text (Text)
 import Data.Text.Encoding qualified as TE
 import Data.Tuple.Homogenous
-import Data.Vector.Unboxed qualified as U
+import Data.Vector.Generic qualified as G
+import Data.Vector.Generic.Mutable qualified as GM
 import Foreign.StablePtr
 
 import Data.Emacs.Module.Env qualified as Env
@@ -194,23 +197,32 @@ makeBool
   => Bool -> m s (v s)
 makeBool b = if b then intern Sym.t else nil
 
-{-# INLINE extractVector #-}
+{-# INLINE extractVectorWith #-}
 -- | Get all elements form an Emacs vector.
-extractVector
-  :: (WithCallStack, MonadEmacs m v, U.Unbox (v s))
-  => v s -> m s (U.Vector (v s))
-extractVector xs = do
+extractVectorWith
+  :: (WithCallStack, MonadEmacs m v, G.Vector w a)
+  => (v s -> m s a) -> v s -> m s (w a)
+extractVectorWith f xs = do
   n <- vecSize xs
-  U.generateM n $ vecGet xs
+  G.generateM n $ f <=< vecGet xs
 
-{-# INLINE extractVectorAsPrimArray #-}
+{-# INLINE extractVectorMutableWith #-}
 -- | Get all elements form an Emacs vector.
-extractVectorAsPrimArray
-  :: (WithCallStack, MonadEmacs m v, Prim (v s))
-  => v s -> m s (PrimArray (v s))
-extractVectorAsPrimArray xs = do
+extractVectorMutableWith
+  :: (WithCallStack, MonadEmacs m v, GM.MVector w a)
+  => (v s -> m s a) -> v s -> m s (w (PrimState (m s)) a)
+extractVectorMutableWith f xs = do
   n <- vecSize xs
-  generatePrimArrayA n $ vecGet xs
+  GM.generateM n $ f <=< vecGet xs
+
+{-# INLINE extractVectorAsPrimArrayWith #-}
+-- | Get all elements form an Emacs vector.
+extractVectorAsPrimArrayWith
+  :: (WithCallStack, MonadEmacs m v, Prim a)
+  => (v s -> m s a) -> v s -> m s (PrimArray a)
+extractVectorAsPrimArrayWith f xs = do
+  n <- vecSize xs
+  generatePrimArrayA n $ f <=< vecGet xs
 
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.

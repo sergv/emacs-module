@@ -16,7 +16,9 @@
 
 - ~makeFunctionExtra~ and ~EmacsFunctionExtra~ are gone. They offered to pass extra pointer into subroutine exposed to Emacs but it was never needed since arbitrary closure can be exposed. Now extra pointer is used to clean up result of ~makeFunction~.
 
-- Removed ~extractUnboxedVectorWith~ - now regular ~extractVector~ produces unboxed vectors
+- Removed ~extractUnboxedVectorWith~ - now regular ~extractVector~ produces generic vectors
+
+- Removed ~extractVector~ - ~extractVectorWith~ and similar for other vector/array types are preferable since they’re guaranteed to not create intermediate vectors/arrays
 
 - Introduce dedicated ~Doc~ type for function documentation that can be constructed from unboxed string literals to just pass the pointer around
 

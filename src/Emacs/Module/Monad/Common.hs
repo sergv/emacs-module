@@ -7,6 +7,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ImportQualifiedPost #-}
@@ -35,6 +36,7 @@ module Emacs.Module.Monad.Common
   ) where
 
 import Control.Exception
+import Control.Monad.Primitive
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as SBS
 import Data.Text (Text)
@@ -50,6 +52,12 @@ import GHC.Exts
 import GHC.IO
 import GHC.Stack (CallStack, callStack)
 import Prettyprinter
+
+#ifdef ASSERTIONS
+import Data.ByteString.Internal qualified as BSI
+import Data.Text.Encoding qualified as TE
+import Foreign.ForeignPtr qualified as Foreign
+#endif
 
 import Data.Emacs.Module.Env.Functions
 import Data.Emacs.Module.Env.ProcessInput
@@ -190,11 +198,18 @@ extractText
   -> IO (EmacsRes EmacsSignal Void Text)
 extractText cache env nls x =
   extractStringWith cache env nls x $ \size# mbarr# ->
+#ifdef ASSERTIONS
+    do
+      -- Should subtract 1 from size to avoid NULL terminator at the end.
+      ptr <- Foreign.newForeignPtr_ (Ptr (mutableByteArrayContents# mbarr#))
+      evaluate $ TE.decodeUtf8 $ BSI.BS ptr (I# (size# -# 1#))
+#else
     IO $ \s1 ->
       case unsafeFreezeByteArray# mbarr# s1 of
         (# s2, barr #) ->
           -- Should subtract 1 from size to avoid NULL terminator at the end.
           (# s2, T.Text (TA.ByteArray barr) 0 (I# (size# -# 1#)) #)
+#endif
 
 {-# INLINE extractShortByteString #-}
 extractShortByteString

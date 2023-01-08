@@ -183,6 +183,11 @@ data EmacsCall (f :: Type -> Type -> Type -> Type) (out :: Type -> Type) (res ::
     -> !Int
     -> out (f EmacsSignal Void (RawValue 'Regular))
     -> EmacsCall f out (f EmacsSignal Void (RawValue 'Regular))
+  VecGetUnsafe
+    :: RawValue p
+    -> !Int
+    -> out (RawValue 'Regular)
+    -> EmacsCall f out (RawValue 'Regular)
   VecSet
     :: RawValue p1
     -> !Int

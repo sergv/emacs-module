@@ -394,6 +394,11 @@ instance MonadEmacs EmacsM Value where
     = coerce
     $ callWithResultMayFailSignal (VecGet (getRawValue vec) n)
 
+  unsafeVecGet :: WithCallStack => Value s -> Int -> EmacsM s (Value s)
+  unsafeVecGet vec n
+    = coerce
+    $ callWithResult (VecGetUnsafe (getRawValue vec) n)
+
   vecSet
     :: WithCallStack
     => Value s -- ^ Vector

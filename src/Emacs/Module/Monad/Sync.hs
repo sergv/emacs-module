@@ -404,6 +404,13 @@ instance MonadEmacs EmacsM Value where
       =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecGet"
       =<< Env.vecGet eEnv (getRawValue vec) (fromIntegral n)
 
+  unsafeVecGet :: WithCallStack => Value s -> Int -> EmacsM s (Value s)
+  unsafeVecGet vec n = EmacsM $ do
+    Environment{eEnv} <- ask
+    liftBase $
+      coerce $
+        Env.vecGet @IO eEnv (getRawValue vec) (fromIntegral n)
+
   vecSet
     :: WithCallStack
     => Value s -- ^ Vector

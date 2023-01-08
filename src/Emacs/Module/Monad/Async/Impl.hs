@@ -164,6 +164,10 @@ callEmacs cache env nls = \case
       =<< checkNonLocalExitSignal cache env nls "VecGet"
       =<< Env.vecGet env vec (fromIntegral n)
 
+  VecGetUnsafe vec n out ->
+    putMVar out
+      =<< Env.vecGet env vec (fromIntegral n)
+
   VecSet vec n x out ->
     putMVar out
       =<< checkNonLocalExitSignal cache env nls "VecSet"

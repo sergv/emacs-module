@@ -195,7 +195,7 @@ extractVectorWith
   => (v s -> m s a) -> v s -> m s (w a)
 extractVectorWith f xs = do
   n <- vecSize xs
-  G.generateM n $ f <=< vecGet xs
+  G.generateM n $ f <=< unsafeVecGet xs
 
 {-# INLINE extractVectorMutableWith #-}
 -- | Get all elements form an Emacs vector.
@@ -204,7 +204,7 @@ extractVectorMutableWith
   => (v s -> m s a) -> v s -> m s (w (PrimState (m s)) a)
 extractVectorMutableWith f xs = do
   n <- vecSize xs
-  GM.generateM n $ f <=< vecGet xs
+  GM.generateM n $ f <=< unsafeVecGet xs
 
 {-# INLINE extractVectorAsPrimArrayWith #-}
 -- | Get all elements form an Emacs vector.
@@ -213,7 +213,7 @@ extractVectorAsPrimArrayWith
   => (v s -> m s a) -> v s -> m s (PrimArray a)
 extractVectorAsPrimArrayWith f xs = do
   n <- vecSize xs
-  generatePrimArrayA n $ f <=< vecGet xs
+  generatePrimArrayA n $ f <=< unsafeVecGet xs
 
 {-# INLINE makeVector #-}
 -- | Create an Emacs vector.

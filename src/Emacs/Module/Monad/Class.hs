@@ -193,6 +193,9 @@ class (forall s. Monad (m s), forall s. MonadInterleave (m s), forall s. U.Unbox
   -- | Extract an element from an Emacs vector.
   vecGet :: WithCallStack => v s -> Int -> m s (v s)
 
+  -- | Extract an element from an Emacs vector without checking for errors.
+  unsafeVecGet :: WithCallStack => v s -> Int -> m s (v s)
+
   -- | Assign an element into an Emacs vector.
   vecSet
     :: WithCallStack

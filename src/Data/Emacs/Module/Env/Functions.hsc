@@ -6,16 +6,6 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DeriveDataTypeable  #-}
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DeriveLift          #-}
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Data.Emacs.Module.Env.Functions
   ( FuncallExit(..)
   , funcallExitToNum

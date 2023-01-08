@@ -7,14 +7,8 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE ImportQualifiedPost    #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE PolyKinds              #-}
 {-# LANGUAGE QuantifiedConstraints  #-}
-{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TypeFamilies           #-}
 
 module Emacs.Module.Monad.Class

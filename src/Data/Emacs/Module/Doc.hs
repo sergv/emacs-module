@@ -9,9 +9,7 @@
 -- in Emacs.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MagicHash           #-}
+{-# LANGUAGE MagicHash #-}
 
 module Data.Emacs.Module.Doc
   ( Doc

@@ -8,15 +8,8 @@
 -- This module defines various kinds of exception that this library
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Emacs.Module.Errors
   ( EmacsThrow(..)

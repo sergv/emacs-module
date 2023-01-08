@@ -6,12 +6,9 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UnboxedTuples       #-}
-{-# LANGUAGE UnliftedNewtypes    #-}
+{-# LANGUAGE MagicHash        #-}
+{-# LANGUAGE UnboxedTuples    #-}
+{-# LANGUAGE UnliftedNewtypes #-}
 
 module Foreign.Ptr.Builder
   ( Builder

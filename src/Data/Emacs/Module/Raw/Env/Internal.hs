@@ -7,8 +7,6 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE DataKinds                #-}
-{-# LANGUAGE EmptyDataDecls           #-}
-{-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE MagicHash                #-}
 {-# LANGUAGE UnliftedFFITypes         #-}

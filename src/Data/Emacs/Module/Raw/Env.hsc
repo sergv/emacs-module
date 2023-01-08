@@ -8,13 +8,10 @@
 -- Low-level and, hopefully, low-overhead wrappers around @struct emacs_env@.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ForeignFunctionInterface   #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE UnliftedFFITypes           #-}
+{-# LANGUAGE DataKinds                #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE TemplateHaskell          #-}
+{-# LANGUAGE UnliftedFFITypes         #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
 

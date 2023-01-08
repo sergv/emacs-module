@@ -8,15 +8,6 @@
 -- Wrappers around some Emacs functions, independent of concrete monad.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE UndecidableInstances  #-}
-
 module Emacs.Module.Functions
   ( funcallPrimitiveSym
   , funcallPrimitiveUncheckedSym

@@ -6,8 +6,6 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE MagicHash #-}
-
 module Data.Emacs.Module.SymbolName
   ( SymbolName
   , mkSymbolName

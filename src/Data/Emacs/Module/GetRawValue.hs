@@ -6,9 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE PolyKinds         #-}
+{-# LANGUAGE DataKinds #-}
 
 module Data.Emacs.Module.GetRawValue (GetRawValue(..)) where
 

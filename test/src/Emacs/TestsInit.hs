@@ -5,18 +5,12 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ForeignFunctionInterface   #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeFamilies               #-}
-
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE CPP                      #-}
+{-# LANGUAGE DataKinds                #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE GADTs                    #-}
+{-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TypeFamilies             #-}
 
 module Emacs.TestsInit () where
 

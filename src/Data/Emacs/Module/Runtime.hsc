@@ -6,11 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UnliftedFFITypes    #-}
+{-# LANGUAGE UnliftedFFITypes #-}
 
 module Data.Emacs.Module.Runtime
   ( Runtime(..)

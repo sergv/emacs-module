@@ -17,7 +17,11 @@ build-type:
 
 common ghc-options
   default-language:
-    Haskell2010
+    GHC2021
+
+  default-extensions:
+    ImportQualifiedPost
+    LambdaCase
 
   ghc-options:
     -Weverything
@@ -27,6 +31,7 @@ common ghc-options
     -Wno-missing-import-lists
     -Wno-missing-local-signatures
     -Wno-missing-safe-haskell-mode
+    -Wno-redundant-constraints
     -Wno-safe
     -Wno-type-defaults
     -Wno-unsafe

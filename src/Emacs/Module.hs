@@ -58,8 +58,6 @@
 -- <https://github.com/sergv/emacs-module/blob/master/test/cbits/emacs_wrapper.c>
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE ImportQualifiedPost #-}
-
 module Emacs.Module
   (
     -- * Basic bindings

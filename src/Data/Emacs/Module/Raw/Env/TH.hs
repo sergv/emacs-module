@@ -7,7 +7,6 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE CPP                   #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
 module Data.Emacs.Module.Raw.Env.TH (wrapEmacsFunc, Safety(..)) where

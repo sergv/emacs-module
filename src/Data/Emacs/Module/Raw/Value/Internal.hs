@@ -6,15 +6,9 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE DerivingVia  #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.Emacs.Module.Raw.Value.Internal
   ( RawValue(..)

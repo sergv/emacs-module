@@ -6,17 +6,11 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UnboxedTuples       #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE MagicHash         #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UnboxedTuples     #-}
 
 module Emacs.Module.Monad.Common
   ( EmacsRes(..)

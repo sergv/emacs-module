@@ -9,29 +9,13 @@
 -- is a good default.
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE ImpredicativeTypes         #-}
-{-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MagicHash                  #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE NumericUnderscores         #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE MagicHash            #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Emacs.Module.Monad.Async
   ( EmacsM

@@ -6,9 +6,8 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE MagicHash           #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE MagicHash       #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Data.Emacs.Module.SymbolName.TH
   ( cacheSym

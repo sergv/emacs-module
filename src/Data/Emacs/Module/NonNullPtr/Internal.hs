@@ -6,8 +6,6 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Data.Emacs.Module.NonNullPtr.Internal (NonNullPtr(..)) where
 
 import Control.DeepSeq

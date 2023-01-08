@@ -6,26 +6,10 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveTraversable          #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MagicHash                  #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE RecursiveDo                #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE UnliftedNewtypes           #-}
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE MagicHash        #-}
+{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE UnliftedNewtypes #-}
 
 {-# OPTIONS_HADDOCK not-home #-}
 

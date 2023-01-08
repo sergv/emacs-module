@@ -6,9 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE KindSignatures  #-}
+{-# LANGUAGE CPP #-}
 
 module Emacs.Module.Assert
   ( WithCallStack

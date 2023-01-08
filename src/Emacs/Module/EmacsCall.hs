@@ -8,10 +8,7 @@
 
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE StandaloneDeriving    #-}
 
 module Emacs.Module.EmacsCall
   ( EmacsCall(..)

@@ -27,6 +27,7 @@ import Control.Exception qualified as Exception
 import Control.Monad.Base
 import Control.Monad.Catch qualified as Catch
 import Control.Monad.Except
+import Control.Monad.Fix (MonadFix)
 import Control.Monad.Interleave
 import Control.Monad.Primitive hiding (unsafeInterleave)
 import Control.Monad.Reader

@@ -4,8 +4,6 @@
 #include "HsFFI.h"
 #include "Rts.h"
 
-#include <Emacs/TestsInit_stub.h>
-
 int plugin_is_GPL_compatible = 1;
 
 HsBool init(void) {
@@ -13,7 +11,7 @@ HsBool init(void) {
   char *argv[] = { NULL };
   char **pargv = argv;
 
-  // Initialize Haskell runtime
+  // Initialise Haskell runtime
   {
       RtsConfig conf = defaultRtsConfig;
       conf.rts_opts_enabled = RtsOptsAll;

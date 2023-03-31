@@ -244,9 +244,9 @@ instance MonadEmacs EmacsM Value where
           Exception.handle (reportEmacsSignalToEmacs env) $
             Exception.handle (reportEmacsThrowToEmacs env) $
               runEmacsM env $ do
-                -- Force since value may contain exception.
-                !res <- coerce (supplyEmacsArgs (fromIntegral nargs) argsPtr (pure . Value) emacsFun)
-                pure res
+                res <- coerce (supplyEmacsArgs (fromIntegral nargs) argsPtr (pure . Value) emacsFun)
+                -- Force since value may contain exceptions.
+                liftIO $ evaluate res
 
   {-# INLINE funcall #-}
   funcall

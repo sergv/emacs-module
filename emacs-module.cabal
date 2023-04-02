@@ -32,7 +32,8 @@ extra-source-files:
   cbits/emacs-module.h
 
 extra-source-files:
-  Readme.org ChangeLog.org
+  ChangeLog.md
+  Readme.md
 
 build-type:
   Simple

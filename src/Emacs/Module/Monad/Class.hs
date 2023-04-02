@@ -42,7 +42,12 @@ type EmacsFunction req opt rest (m :: k -> Type -> Type) (v :: k -> Type) (s :: 
 -- are mostly direct translations of emacs interface provided by 'emacs-module.h'.
 --
 -- For more functions please refer to "Emacs.Module.Functions" module.
-class (forall s. Monad (m s), forall s. MonadInterleave (m s), forall s. U.Unbox (v s), forall s. PrimMonad (m s)) => MonadEmacs (m :: k -> Type -> Type) (v :: k -> Type) | m -> v where
+class
+  ( forall s. Monad (m s)
+  , forall s. MonadInterleave (m s)
+  , forall s. U.Unbox (v s)
+  , forall s. PrimMonad (m s)
+  ) => MonadEmacs (m :: k -> Type -> Type) (v :: k -> Type) | m -> v where
 
   -- -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
   -- -- after 'm' finishes its execution.

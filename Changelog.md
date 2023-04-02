@@ -1,14 +1,14 @@
 # 0.2
 
-- Major rework of everything
+- Major rework of the package’s core
 
 - Bump minimum required Emacs version to 28
 
 - Bump minimum required `base` version to 4.14 - minimum supported GHC is 8.10
 
-- Symbols can be either statically known or dynamically known. This is mostly an optimization that doesn’t affect symbol use but client code may require updating. Statically known symbol are just pointers to statically allocated (by GHC) bytes and the pointers are simply passed to Emacs when to create symbols.
+- Symbols can be either statically known or dynamically known. This is mostly an optimization that doesn’t affect symbol use but client code may require updating. Statically known symbol are just pointers to statically allocated (by GHC) bytes and the pointers are simply passed to Emacs to create symbols.
 
-- Some commonly used symbols are now cached on first use so they won’t be re-interned on subsequent uses. Users can define new symbols.
+- Some commonly used symbols are now cached on first use so they won’t be re-interned on subsequent uses. New symbols can be defined by users.
 
 - `makeFunction` now cleans up after itself and no longer has memory leak if called a lot of times (which shouldn’t have typically happened anyway but still nice to have just in case)
 
@@ -30,7 +30,7 @@
 
 - `GlobalRef` got removed, instead `RawValue` is indexed by whether it’s going to be GC’ed after returning control back to Emacs
 
-- `funcall` and `funcallPrimitive` now accept any emacs value function rather than a symbol only
+- `funcall` and `funcallPrimitive` now accept any emacs value function rather than symbols only
 
 - `extractString` removed, `extractText` is now part of `MonadEmacs` typeclass
 

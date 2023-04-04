@@ -26,7 +26,6 @@ module Emacs.Module.Monad.Common
   , checkNonLocalExitFull
   , extractSignalInfo
   , extractTextUnsafe
-  , processInput
   ) where
 
 import Control.Exception
@@ -54,7 +53,6 @@ import Foreign.ForeignPtr qualified as Foreign
 #endif
 
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Env.ProcessInput
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env (EnumFuncallExit(..))
 import Data.Emacs.Module.Raw.Env qualified as Env
@@ -333,13 +331,3 @@ extractTextUnsafe env !x = do
           else do
             Env.nonLocalExitClear env
             throwIO $ mkEmacsInternalError "Failed to unpack string"))
-
-processInput :: Env -> IO ()
-processInput env = do
-  Env.EnumProcessInputResult (CInt x) <- Env.processInput env
-  case processInputResultFromNum x of
-    Nothing                   ->
-      throwIO $ mkEmacsInternalError $
-        "Unknown value of enum emacs_process_input_result" <+> pretty x
-    Just ProcessInputContinue -> pure ()
-    Just ProcessInputQuit     -> throwIO EarlyTermination

@@ -2,7 +2,7 @@
 
 - Major rework of the package’s core
 
-- Bump minimum required Emacs version to 28
+- Bump minimum required Emacs version to 28 due to exposing `process_input` from API. It allows to check whether user wants to abort and control should be returned back to Emacs ASAP
 
 - Bump minimum required `base` version to 4.14 - minimum supported GHC is 8.10
 
@@ -11,8 +11,6 @@
 - Some commonly used symbols are now cached on first use so they won’t be re-interned on subsequent uses. New symbols can be defined by users.
 
 - `makeFunction` now cleans up after itself and no longer has memory leak if called a lot of times (which shouldn’t have typically happened anyway but still nice to have just in case)
-
-- When called by emacs the package periodically invokes `process_input` and raises asynchronous exception if user requested to stop operation. This makes emacs functions defined via this package interruptible.
 
 - `makeFunctionExtra` and `EmacsFunctionExtra` are gone. They offered to pass extra pointer into subroutine exposed to Emacs but it was never needed since arbitrary closure can be exposed. Now extra pointer is used to clean up result of `makeFunction`.
 

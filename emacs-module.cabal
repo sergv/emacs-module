@@ -112,10 +112,8 @@ library
     Emacs.Module
     Emacs.Module.Assert
     Emacs.Module.Errors
-    Emacs.Module.EmacsCall
     Emacs.Module.Functions
     Emacs.Module.Monad
-    Emacs.Module.Monad.Async
     Emacs.Module.Monad.Class
     Emacs.Module.Monad.Sync
     Foreign.Ptr.Builder
@@ -128,7 +126,6 @@ library
     Data.Emacs.Module.Raw.Value.Internal
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
-    Emacs.Module.Monad.Async.Impl
     Emacs.Module.Monad.Common
   hs-source-dirs:
     src
@@ -143,8 +140,6 @@ library
     , primitive
     , prettyprinter >= 1.7
     , prettyprinter-combinators
-    , some
-    , stm
     , stm-chans
     , text
     , template-haskell

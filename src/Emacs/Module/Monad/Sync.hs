@@ -45,9 +45,11 @@ import Foreign.C.Types
 import Foreign.Ptr
 import GHC.ForeignPtr
 import GHC.Stack (callStack)
+import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
+import Data.Emacs.Module.Env.ProcessInput
 import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Env
@@ -61,7 +63,6 @@ import Emacs.Module.Errors
 import Emacs.Module.Monad.Class
 import Emacs.Module.Monad.Common as Common
 import Foreign.Ptr.Builder as PtrBuilder
-
 
 data Environment = Environment
   { eEnv           :: Env
@@ -431,3 +432,14 @@ instance MonadEmacs EmacsM Value where
           handleResultNoThrow
       =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecSize" . fromIntegral
       =<< Env.vecSize eEnv (getRawValue vec)
+
+  processInput :: WithCallStack => EmacsM s ProcessInputResult
+  processInput =
+    withEnv $ \env -> do
+      Env.EnumProcessInputResult (CInt x) <- Env.processInput env
+      case processInputResultFromNum x of
+        Nothing ->
+          throwIO $ mkEmacsInternalError $
+            "Unknown value of enum emacs_process_input_result" <+> pretty x
+        Just y  -> pure y
+

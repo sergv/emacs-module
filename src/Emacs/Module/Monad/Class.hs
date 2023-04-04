@@ -30,6 +30,7 @@ import Foreign.Ptr (Ptr)
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Doc qualified as Doc
 import Data.Emacs.Module.Env.Functions
+import Data.Emacs.Module.Env.ProcessInput
 import Data.Emacs.Module.Raw.Value
 import Data.Emacs.Module.SymbolName
 import Emacs.Module.Assert
@@ -211,3 +212,6 @@ class
 
   -- | Get size of an Emacs vector.
   vecSize :: WithCallStack => v s -> m s Int
+
+  -- | Check whether user pressed 'C-g' and we should abort our operation.
+  processInput :: WithCallStack => m s ProcessInputResult

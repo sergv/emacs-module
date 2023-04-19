@@ -406,7 +406,8 @@ $(wrapEmacsFunc "makeStringTH" Unsafe
 makeString
   :: MonadIO m
   => Env
-  -> CString  -- ^ 0-terminated utf8-encoded string.
+  -> CString  -- ^ Utf8-encoded string, may contain null bytes and is
+              -- not required to be terminated with one.
   -> CPtrdiff -- ^ Length.
   -> m (RawValue 'Regular)
 makeString = makeStringTH

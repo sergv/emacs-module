@@ -7,9 +7,9 @@
 ----------------------------------------------------------------------------
 
 module Data.Emacs.Module.Env.ProcessInput
-  ( ProcessInputResult(..)
-  , processInputResultToNum
-  , processInputResultFromNum
+  ( Result(..)
+  , resultToNum
+  , resultFromNum
   ) where
 
 import Data.Data (Data)
@@ -18,24 +18,25 @@ import Prettyprinter.Generics
 
 #include <emacs-module.h>
 
-data ProcessInputResult
-  = ProcessInputContinue
-  | ProcessInputQuit
+-- | Result of 'process_inputs' Emacs API call.
+data Result
+  = Continue
+  | Quit
   deriving (Eq, Ord, Show, Data, Generic, Lift)
 
-instance Pretty ProcessInputResult where
+instance Pretty Result where
   pretty = ppGeneric
 
-{-# INLINE processInputResultToNum #-}
-processInputResultToNum :: Num a => ProcessInputResult -> a
-processInputResultToNum = \case
-  ProcessInputContinue -> (#const emacs_process_input_continue)
-  ProcessInputQuit     -> (#const emacs_process_input_quit)
+{-# INLINE resultToNum #-}
+resultToNum :: Num a => Result -> a
+resultToNum = \case
+  Continue -> (#const emacs_process_input_continue)
+  Quit     -> (#const emacs_process_input_quit)
 
-{-# INLINE processInputResultFromNum #-}
-processInputResultFromNum :: (Eq a, Num a) => a -> Maybe ProcessInputResult
-processInputResultFromNum = \case
-  (#const emacs_process_input_continue) -> Just ProcessInputContinue
-  (#const emacs_process_input_quit)     -> Just ProcessInputQuit
+{-# INLINE resultFromNum #-}
+resultFromNum :: (Eq a, Num a) => a -> Maybe Result
+resultFromNum = \case
+  (#const emacs_process_input_continue) -> Just Continue
+  (#const emacs_process_input_quit)     -> Just Quit
   _                                     -> Nothing
 

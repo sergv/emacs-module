@@ -49,7 +49,7 @@ import Prettyprinter
 
 import Data.Emacs.Module.Args
 import Data.Emacs.Module.Env.Functions
-import Data.Emacs.Module.Env.ProcessInput
+import Data.Emacs.Module.Env.ProcessInput qualified as ProcessInput
 import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env qualified as Env
@@ -433,11 +433,11 @@ instance MonadEmacs EmacsM Value where
       =<< checkNonLocalExitSignal (coerceBuilderCache eArgsCache) eEnv eNonLocalState "VecSize" . fromIntegral
       =<< Env.vecSize eEnv (getRawValue vec)
 
-  processInput :: WithCallStack => EmacsM s ProcessInputResult
+  processInput :: WithCallStack => EmacsM s ProcessInput.Result
   processInput =
     withEnv $ \env -> do
       Env.EnumProcessInputResult (CInt x) <- Env.processInput env
-      case processInputResultFromNum x of
+      case ProcessInput.resultFromNum x of
         Nothing ->
           throwIO $ mkEmacsInternalError $
             "Unknown value of enum emacs_process_input_result" <+> pretty x

@@ -112,7 +112,7 @@ instance MonadBaseControl IO (EmacsM s) where
   {-# INLINE liftBaseWith #-}
   liftBaseWith f = EmacsM (liftBaseWith (\runInBase -> f (runInBase . unEmacsM)))
   {-# INLINE restoreM #-}
-  restoreM x = EmacsM (restoreM x)
+  restoreM = EmacsM . restoreM
 
 -- | Execute emacs interaction session using an environment supplied by Emacs.
 runEmacsM

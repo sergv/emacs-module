@@ -45,8 +45,8 @@ toPtr (Env x) = Ptr x
 fromPtr :: Ptr Environment -> Env
 fromPtr (Ptr x) = Env x
 
-type RawFunctionType o a =
-     Ptr Environment
+type RawFunctionType o a
+  =  Ptr Environment
   -> CPtrdiff                -- Number of arguments
   -> Ptr (RawValue 'Regular) -- Actual arguments, always supplied by Emacs so never 'Pinned'.
   -> Ptr a                   -- Extra data
@@ -55,9 +55,13 @@ type RawFunctionType o a =
 -- NB This is *the* coolest point of this library: *any* Haskell
 -- function (incl closures) may be exposed to C to be called later.
 -- The C/C++ will never have this...
+
+-- | Take Haskell function and return C pointer to function (which
+-- ideally needs to be cleaned up later by 'freeHaskellFunPtrWrapped').
 foreign import ccall "wrapper"
   exportToEmacs :: RawFunctionType o a -> IO (RawFunction o a)
 
+-- | Pointer to a function that may later be called by by Emacs.
 newtype RawFunction o a = RawFunction { unRawFunction :: FunPtr (RawFunctionType o a) }
   deriving (Eq, Ord, Show)
 

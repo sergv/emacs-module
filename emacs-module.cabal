@@ -140,7 +140,6 @@ library
     , primitive
     , prettyprinter >= 1.7
     , prettyprinter-combinators
-    , stm-chans
     , text
     , template-haskell
     , transformers-base

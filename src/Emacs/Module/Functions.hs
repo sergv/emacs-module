@@ -8,6 +8,12 @@
 -- Wrappers around some Emacs functions, independent of concrete monad.
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP #-}
+
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+# define WINDOWS 1
+#endif
+
 module Emacs.Module.Functions
   ( funcallPrimitiveSym
   , funcallPrimitiveUncheckedSym
@@ -18,6 +24,7 @@ module Emacs.Module.Functions
   , extractStablePtrFromUserPtr
     -- * Haskell<->Emacs datatype conversions
   , extractInt
+  , extractOsPath
   , makeInt
   , makeText
   , makeShortByteString
@@ -67,6 +74,8 @@ import Data.Tuple.Homogenous
 import Data.Vector.Generic qualified as G
 import Data.Vector.Generic.Mutable qualified as GM
 import Foreign.StablePtr
+import System.OsPath
+import System.OsString.Internal.Types
 
 import Data.Emacs.Module.Env qualified as Env
 import Data.Emacs.Module.SymbolName
@@ -152,6 +161,15 @@ extractInt x = do
     (y <= fromIntegral (maxBound :: Int))
     ("Integer is too wide to fit into Int: " ++ show y)
     (pure (fromIntegral y))
+
+extractOsPath
+  :: (WithCallStack, MonadEmacs m v) => v s -> m s OsPath
+extractOsPath x = do
+#ifdef WINDOWS
+  OsString . WindowsString . BSS.toShort . TE.encodeUtf16LE <$> extractText x
+#else
+  OsString . PosixString <$> extractShortByteString x
+#endif
 
 {-# INLINE makeInt #-}
 -- | Pack an 'Int' integer for Emacs.

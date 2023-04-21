@@ -134,6 +134,7 @@ library
     , bytestring
     , deepseq
     , exceptions
+    , filepath >= 1.4.100
     , monad-control
     , monad-interleave >= 0.2
     , mtl

@@ -141,7 +141,7 @@ library
     , primitive
     , prettyprinter >= 1.7
     , prettyprinter-combinators
-    , text
+    , text >= 2
     , template-haskell
     , transformers-base
     , tuples-homogenous-h98

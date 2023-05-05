@@ -22,7 +22,7 @@
 
 - `produceRef` and `EmacsReturn` are gone - vanilla `pure` and `EmacsRef` are enough
 
-- Symbol names got IsString instance and can be defined as string constants
+- Symbol names got `IsString` instance and can be defined as string constants
 
 - Removed `UserPtrFinaliser` and `UserPtrFinaliserType`. Use `Foreign.ForeignPtr.FinalizerPtr` instead
 

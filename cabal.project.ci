@@ -1,0 +1,15 @@
+packages:
+  emacs-module.cabal
+  test/emacs-module-test.cabal
+
+constraints:
+  , emacs-module +assertions +module-assertions
+  , text -simdutf
+
+package emacs-module
+  ghc-options: -Werror
+
+package emacs-module-test
+  ghc-options: -Werror
+
+library-profiling: False

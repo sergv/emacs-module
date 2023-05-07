@@ -1,0 +1,4 @@
+LIBRARY emacs-module-test
+EXPORTS
+  plugin_is_GPL_compatible @1
+  emacs_module_init @2

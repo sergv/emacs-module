@@ -65,7 +65,7 @@ foreign-library emacs-module-test
 
   if os(Windows)
     options: standalone
-  --   mod-def-file: MyForeignLib.def
+    mod-def-file: emacs-module-test.def
 
   ghc-options:
     -threaded

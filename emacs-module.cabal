@@ -32,7 +32,7 @@ extra-source-files:
   cbits/emacs-module.h
 
 extra-source-files:
-  ChangeLog.md
+  Changelog.md
   Readme.md
 
 build-type:

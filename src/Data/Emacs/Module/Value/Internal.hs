@@ -11,6 +11,8 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE UnboxedTuples #-}
+
 module Data.Emacs.Module.Value.Internal
   ( Value(..)
   ) where

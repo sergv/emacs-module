@@ -17,6 +17,8 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE UnboxedTuples #-}
+
 module Emacs.Module.Monad.Sync
   ( EmacsM
   , runEmacsM

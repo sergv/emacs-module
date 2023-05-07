@@ -10,6 +10,8 @@
 {-# LANGUAGE DerivingVia  #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# LANGUAGE UnboxedTuples #-}
+
 module Data.Emacs.Module.Raw.Value.Internal
   ( RawValue(..)
   , Pinning(..)

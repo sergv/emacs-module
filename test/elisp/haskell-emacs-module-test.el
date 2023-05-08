@@ -8,10 +8,6 @@
 
 (require 'ert)
 
-;; (setq-default garbage-collection-messages t)
-
-(load-library "libemacs-module-test")
-
 (defun custom-replicate (n x)
   (let ((res nil))
     (dotimes (i n)

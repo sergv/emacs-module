@@ -16,7 +16,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Emacs.Module.Monad
-  ( EmacsM
+  ( module Emacs.Module.Monad.Class
+  , EmacsM
   , runEmacsM
   ) where
 

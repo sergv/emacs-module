@@ -147,7 +147,7 @@ class
   -- characters are the equal, but not much more. For more complete
   -- equality comparison do
   --
-  -- > intern "equal" >>= \equal -> funcallPrimitive equal [x, y]
+  -- > intern "equal" >>= \equal -> funcallPrimitiveUnchecked equal [x, y]
   eq
     :: WithCallStack
     => v s -> v s -> m s Bool

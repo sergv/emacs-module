@@ -12,13 +12,13 @@ synopsis:
 description:
   This package provides a full set of bindings to emacs-module.h that
   allows to develop Emacs modules in Haskell. Bindings are based on
-  Emacs 25 version of the interface and thus should work in all
-  subsequent versions of Emacs.
+  Emacs 28 version of the interface and thus should work in all
+  subsequent versions of Emacs, but will now work with earlier versions.
 
   For pointers on how to write minimal Emacs module, please refer to
   tutorial https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
 
-  Entry point: 'Emacs.Module' module.
+  Entry point: Emacs.Module module.
 
 license:
   Apache-2.0
@@ -117,7 +117,6 @@ library
     Emacs.Module.Functions
     Emacs.Module.Monad
     Emacs.Module.Monad.Class
-    Foreign.Ptr.Builder
   other-modules:
     Data.Emacs.Module.NonNullPtr.Internal
     Data.Emacs.Module.Raw.Env
@@ -128,6 +127,7 @@ library
     Data.Emacs.Module.SymbolName.Internal
     Data.Emacs.Module.Value.Internal
     Emacs.Module.Monad.Common
+    Foreign.Ptr.Builder
   hs-source-dirs:
     src
   build-depends:

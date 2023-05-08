@@ -18,6 +18,8 @@ description:
   For pointers on how to write minimal Emacs module, please refer
   to https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs
 
+  Entry point: 'Emacs.Module.Monad' module.
+
 license:
   Apache-2.0
 license-file:
@@ -27,7 +29,7 @@ author:
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 tested-with:
-    GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.4, GHC == 9.4.2
+    GHC == 9.2.7, GHC == 9.4.5, GHC == 9.6.1
 extra-source-files:
   cbits/emacs-module.h
 
@@ -115,7 +117,6 @@ library
     Emacs.Module.Functions
     Emacs.Module.Monad
     Emacs.Module.Monad.Class
-    Emacs.Module.Monad.Sync
     Foreign.Ptr.Builder
   other-modules:
     Data.Emacs.Module.NonNullPtr.Internal

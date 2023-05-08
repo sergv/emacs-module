@@ -23,29 +23,28 @@
 --
 -- With help of this package, it may be defined as
 --
--- @
--- {-# LANGUAGE DataKinds   #-}
--- {-# LANGUAGE QuasiQuotes #-}
 --
--- import Data.Maybe
--- import Data.Emacs.Module.SymbolName.TH
--- import Emacs.Module
+-- > {-# LANGUAGE DataKinds   #-}
+-- > {-# LANGUAGE QuasiQuotes #-}
+-- >
+-- > import Data.Maybe
+-- > import Data.Emacs.Module.SymbolName.TH
+-- > import Emacs.Module
 --
--- foo
---   :: (MonadEmacs m v, Monad (m s))
---   => EmacsFunction ('S ('S ('S ('S 'Z)))) ('S ('S 'Z)) 'True m v s
--- foo (R f (R x (R y (R z (O w (O t (Rest quux))))))) = do
---   x'    <- extractInt x
---   y'    <- extractInt y
---   z'    <- extractInt z
---   w'    <- traverse extractInt w
---   t'    <- traverse extractInt t
---
---   tmp   <- makeInt (x' * y' * z')
---   tmp'  <- extractInt =<< funcallSym "funcall" [f, tmp]
---
---   produceRef =<< makeInt (tmp' + fromMaybe 1 w' * fromMaybe 2 t' + length quux)
--- @
+-- > foo
+-- >   :: MonadEmacs m v
+-- >   => EmacsFunction ('S ('S ('S ('S 'Z)))) ('S ('S 'Z)) 'True m v s
+-- > foo (R f (R x (R y (R z (O w (O t (Rest quux))))))) = do
+-- >   x'    <- extractInt x
+-- >   y'    <- extractInt y
+-- >   z'    <- extractInt z
+-- >   w'    <- traverse extractInt w
+-- >   t'    <- traverse extractInt t
+-- >
+-- >   tmp   <- makeInt (x' * y' * z')
+-- >   tmp'  <- extractInt =<< funcallSym "funcall" [f, tmp]
+-- >
+-- >   produceRef =<< makeInt (tmp' + fromMaybe 1 w' * fromMaybe 2 t' + length quux)
 --
 -- = Creating Emacs dynamic module
 -- In order to make shared object or dll callable from Emacs,

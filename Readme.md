@@ -51,6 +51,9 @@ extensions that can manipulate Emacs values directly, without
 marhsalling. In this approach, an extension will look like a shared
 library/dll that can be loaded by standard emacs with `(load "/tmp/libmy-ext.so")`.
 
+### Is there a tutorial?
+It’s at https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
+
 ## Supported GHC versions
 
-Tested with GHC `8.10`, `9.0`, `9.2`, `9.4`.
+Tested with GHC `9.2`, `9.4`, `9.6`.

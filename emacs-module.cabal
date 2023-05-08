@@ -15,10 +15,10 @@ description:
   Emacs 25 version of the interface and thus should work in all
   subsequent versions of Emacs.
 
-  For pointers on how to write minimal Emacs module, please refer
-  to https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs
+  For pointers on how to write minimal Emacs module, please refer to
+  tutorial https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
 
-  Entry point: 'Emacs.Module.Monad' module.
+  Entry point: 'Emacs.Module' module.
 
 license:
   Apache-2.0

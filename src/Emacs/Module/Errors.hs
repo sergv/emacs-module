@@ -216,11 +216,6 @@ formatSomeException :: SomeException -> Text
 formatSomeException e =
   case pretty @EmacsError         <$> fromException e <|>
        pretty @EmacsInternalError <$> fromException e of
-          -- <|>
-       -- pretty @EmacsThrow         <$> fromException e <|>
-       -- pretty @EmacsSignal        <$> fromException e of
-         -- <|>
-       -- pretty @UserError          <$> fromException e of
     Just formatted -> render' formatted
     Nothing        ->
       PP.renderStrict $ layoutPretty defaultLayoutOptions $
@@ -241,16 +236,12 @@ reportAnyErrorToEmacs env !e = do
 reportAllErrorsToEmacs
   :: Env
   -> IO a -- ^ Result to return on error.
-  -- -> ((Throws EmacsInternalError, Throws EmacsError, Throws EmacsThrow, Throws EmacsSignal) => IO a)
   -> IO a
   -> IO a
 reportAllErrorsToEmacs env resultOnErr x
   = Exception.handle (\e -> report formatSomeException env e *> resultOnErr)
   $ Exception.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
   $ Exception.handle (\et -> reportEmacsSignalToEmacs' env et *> resultOnErr) x
-  -- $ Exception.uncheck (Proxy @EmacsInternalError)
-  -- $ Exception.uncheck (Proxy @EmacsError) x
-  -- $ Checked.uncheck (Proxy @UserError) x
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do

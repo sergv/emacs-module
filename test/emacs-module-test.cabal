@@ -71,7 +71,7 @@ foreign-library emacs-module-test
     -threaded
 
   build-depends:
-    , base >=4.14 && <5
+    , base >= 4.16 && <5
     , bytestring
     , emacs-module
   hs-source-dirs:

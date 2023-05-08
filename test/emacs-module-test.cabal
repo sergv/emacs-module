@@ -50,8 +50,6 @@ foreign-library emacs-module-test
     native-shared
   lib-version-info:
     0:0:0
-  build-tool-depends:
-    hsc2hs:hsc2hs
   c-sources:
     cbits/emacs_wrapper.c
   includes:
@@ -64,8 +62,10 @@ foreign-library emacs-module-test
     Emacs.TestsInit
 
   if os(Windows)
-    options: standalone
-    mod-def-file: emacs-module-test.def
+    options:
+      standalone
+    mod-def-file:
+      emacs-module-test.def
 
   ghc-options:
     -threaded

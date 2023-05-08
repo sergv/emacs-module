@@ -58,6 +58,50 @@
       10)
      :type 'error)))
 
+(ert-deftest haskell-emacs-module-test/apply-function-twice-alt-1 ()
+  (should (fboundp #'haskell-emacs-module-tests-apply2-alt)))
+
+(ert-deftest haskell-emacs-module-test/apply-function-twice-alt-2 ()
+  (should (equal (haskell-emacs-module-tests-apply2-alt (lambda (x) (* x 2)) 10)
+                40)))
+
+(ert-deftest haskell-emacs-module-test/apply-function-twice-alt-3 ()
+  (let ((acc 0))
+    (should (equal (haskell-emacs-module-tests-apply2-alt
+                   (lambda (x) (setf acc (+ acc 1)) (+ x acc))
+                   10)
+                  13))
+    (should (equal (haskell-emacs-module-tests-apply2-alt
+                   (lambda (x) (setf acc (+ acc 1)) (+ x acc))
+                   10)
+                  17))))
+
+(ert-deftest haskell-emacs-module-test/apply-function-twice-alt-4 ()
+  (let* ((acc 0))
+    (should (equal (catch 'wat
+                    (progn
+                      (haskell-emacs-module-tests-apply2-alt
+                       (lambda (x)
+                         (setf acc (+ acc 1))
+                         (if (<= 2 acc)
+                             (throw 'wat x)
+                           (+ x acc)))
+                       10)
+                      0))
+                  11))))
+
+(ert-deftest haskell-emacs-module-test/apply-function-twice-alt-5 ()
+  (let* ((acc 0))
+    (should-error
+     (haskell-emacs-module-tests-apply2-alt
+      (lambda (x)
+        (setf acc (+ acc 1))
+        (if (<= 2 acc)
+            (error "I'm done with you")
+          (+ x acc)))
+      10)
+     :type 'error)))
+
 (ert-deftest haskell-emacs-module-test/add-1 ()
   (should (fboundp #'haskell-emacs-module-tests-add)))
 

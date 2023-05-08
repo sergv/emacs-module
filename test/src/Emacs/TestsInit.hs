@@ -50,6 +50,8 @@ initialise'
 initialise' = do
   bindFunction "haskell-emacs-module-tests-apply2" =<<
     makeFunction apply2 "Apply a function twice."
+  bindFunction "haskell-emacs-module-tests-apply2-alt" =<<
+    makeFunction apply2Alt "Apply a function twice."
   bindFunction "haskell-emacs-module-tests-add" =<<
     makeFunction add "Add two numbers."
   bindFunction "haskell-emacs-module-tests-get-rest" =<<
@@ -70,11 +72,16 @@ apply2
   :: (WithCallStack, MonadEmacs m v)
   => EmacsFunction ('S ('S 'Z)) 'Z 'False m v s
 apply2 (R f (R x Stop)) = do
-  -- funcallSym <- intern Sym.funcall
-  -- y          <- funcall funcallSym [f, x]
-  -- res        <- funcall funcallSym [f, y]
-  y          <- funcall f [x]
-  res        <- funcall f [y]
+  y <- funcall f [x]
+  funcall f [y]
+
+apply2Alt
+  :: (WithCallStack, MonadEmacs m v)
+  => EmacsFunction ('S ('S 'Z)) 'Z 'False m v s
+apply2Alt (R f (R x Stop)) = do
+  funcallSym <- intern Sym.funcall
+  y          <- funcall funcallSym [f, x]
+  res        <- funcall funcallSym [f, y]
   pure res
 
 add

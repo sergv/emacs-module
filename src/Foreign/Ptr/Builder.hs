@@ -77,7 +77,6 @@ withByteArrayLen (BuilderCache cache#) (Builder size f) action =
                     case unIO (f (mutableByteArrayContents# mbarr#) 0#) s2 of
                       (# s3, () #) ->
                         unsafeFreezeByteArray# mbarr# s3
-
         in
           -- keepAlive# barr# sLast1 (unIO (action size barr#))
           -- Touch is measurably faster but unsound if the action diverges.
@@ -85,8 +84,6 @@ withByteArrayLen (BuilderCache cache#) (Builder size f) action =
             (# sLast2, res #) ->
               case touch# barr# sLast2 of
                 sLast3 -> (# sLast3, res #)
-
-
   where
     !requiredSize  = size *# elemSize
     !(I# elemSize) = Storable.sizeOf    (undefined :: a)
@@ -111,7 +108,6 @@ prim x = Builder 1# $ \addr off ->
   IO $ \s ->
     case Prim.writeOffAddr# addr off x s of
       s' -> (# s', () #)
-
 
 newtype BuilderCache a = BuilderCache { _unBuilderCache :: MutableByteArray# RealWorld }
 

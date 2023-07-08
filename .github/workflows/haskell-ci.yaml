@@ -16,14 +16,14 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         ghc:
-          - "9.2.7"
-          - "9.4.5"
-          - "9.6.1"
+          - "9.2"
+          - "9.4"
+          - "9.6"
         include:
           - os: macOS-latest
-            ghc: "9.6.1"
+            ghc: "9.6"
           - os: windows-latest
-            ghc: "9.6.1"
+            ghc: "9.6"
     steps:
     - uses: actions/checkout@v3
 
@@ -31,7 +31,7 @@ jobs:
       with:
         version: "28.2"
 
-    - uses: haskell/actions/setup@v2.3.7
+    - uses: haskell/actions/setup@v2
       id: setup-haskell-cabal
       with:
         ghc-version: ${{ matrix.ghc }}
@@ -67,16 +67,17 @@ jobs:
 
     - name: Unpack
       run: |
-        cabal sdist --ignore-project --output-directory .
+        cabal sdist --ignore-project --output-directory ..
+        cd ..
         cabal get emacs-module-*.tar.gz
 
     - name: Cabal check
       run: |
-        cd emacs-module-*/
+        cd ../emacs-module-*/
         cabal check
 
     - name: Build fresh
       run: |
-        cd emacs-module-*/
+        cd ../emacs-module-*/
         cabal build all
 

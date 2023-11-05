@@ -6,6 +6,7 @@
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
 
+{-# LANGUAGE CPP          #-}
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE DerivingVia  #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -25,7 +26,9 @@ import Data.Vector.Generic qualified as G
 import Data.Vector.Generic.Mutable qualified as GM
 import Data.Vector.Primitive qualified as P
 import Data.Vector.Unboxed qualified as U
+#if !MIN_VERSION_vector(0, 13, 1)
 import Data.Vector.Unboxed.Base qualified as U
+#endif
 import Foreign
 import GHC.Generics (Generic)
 import Prettyprinter (Pretty(..))

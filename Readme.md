@@ -56,4 +56,4 @@ It’s at https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
 
 ## Supported GHC versions
 
-Tested with GHC `9.2`, `9.4`, `9.6`.
+Tested with GHC `9.2`, `9.4`, `9.6`, `9.8`.

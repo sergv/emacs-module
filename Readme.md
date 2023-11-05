@@ -29,8 +29,9 @@ it has a couple of issues that are not going to be solved any time soon:
 
 ## FAQ
 ### How do I start writing my own extensions?
-Some day there will be a proper tutorial for using this package.
-For the time being the best place to start is
+See tutorial at https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
+
+Also check out
 [this package’s tests](https://github.com/sergv/emacs-module/blob/master/test/src/Emacs/TestsInit.hs).
 
 ### What about Windows?
@@ -50,9 +51,6 @@ This project is a bit different. It wraps Emacs C API for writing new
 extensions that can manipulate Emacs values directly, without
 marhsalling. In this approach, an extension will look like a shared
 library/dll that can be loaded by standard emacs with `(load "/tmp/libmy-ext.so")`.
-
-### Is there a tutorial?
-It’s at https://github.com/sergv/emacs-module/blob/master/Tutorial.md.
 
 ## Supported GHC versions
 

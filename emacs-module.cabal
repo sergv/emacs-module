@@ -29,7 +29,11 @@ author:
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 tested-with:
-    GHC == 9.2.7, GHC == 9.4.5, GHC == 9.6.1
+  , GHC == 9.2.8
+  , GHC == 9.4.7
+  , GHC == 9.6.3
+  , GHC == 9.8.1
+
 extra-source-files:
   cbits/emacs-module.h
 

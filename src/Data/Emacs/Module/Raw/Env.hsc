@@ -49,6 +49,7 @@ module Data.Emacs.Module.Raw.Env
   , makeFloat
   , copyStringContents
   , makeString
+  , makeUnibyteString
   , makeUserPtr
   , getUserPtr
   , setUserPtr
@@ -411,6 +412,21 @@ makeString
   -> CPtrdiff -- ^ Length.
   -> m (RawValue 'Regular)
 makeString = makeStringTH
+
+
+$(wrapEmacsFunc "makeUnibyteStringTH" Unsafe
+   [e| (#peek emacs_env, make_unibyte_string) |]
+   [t| Env -> CString -> CPtrdiff -> IO (RawValue 'Regular) |])
+
+{-# INLINE makeUnibyteString #-}
+makeUnibyteString
+  :: MonadIO m
+  => Env
+  -> CString  -- ^ Any string, may contain anything bytes and is
+              -- not required to be terminated with null byte.
+  -> CPtrdiff -- ^ Length.
+  -> m (RawValue 'Regular)
+makeUnibyteString = makeUnibyteStringTH
 
 
 $(wrapEmacsFunc "makeUserPtrTH" Unsafe

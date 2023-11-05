@@ -174,6 +174,8 @@ class
   -- | Convert a utf8-encoded ByteString into an Emacs value.
   makeString :: WithCallStack => BS.ByteString -> m s (v s)
 
+  -- | Convert any ByteString into an Emacs unibyte string.
+  makeBinaryString :: WithCallStack => BS.ByteString -> m s (v s)
 
   -- | Extract a user pointer from an Emacs value.
   extractUserPtr :: WithCallStack => v s -> m s (Ptr a)

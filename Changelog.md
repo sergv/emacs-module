@@ -1,3 +1,7 @@
+# 0.2.1
+
+- Expose `make_unibyte_string` as `makeBinaryString`
+
 # 0.2
 
 - Major rework of the package’s core

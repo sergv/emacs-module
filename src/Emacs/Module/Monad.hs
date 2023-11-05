@@ -336,6 +336,11 @@ instance MonadEmacs EmacsM Value where
     BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->
       coerce $ Env.makeString @IO env pStr (fromIntegral len)
 
+  makeBinaryString :: WithCallStack => BS.ByteString -> EmacsM s (Value s)
+  makeBinaryString x = withEnv $ \env ->
+    BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->
+      coerce $ Env.makeUnibyteString @IO env pStr (fromIntegral len)
+
   extractUserPtr :: WithCallStack => Value s -> EmacsM s (Ptr a)
   extractUserPtr x = EmacsM $ do
     Environment{eEnv, eNonLocalState, eArgsCache} <- ask

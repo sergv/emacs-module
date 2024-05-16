@@ -13,7 +13,7 @@ module Data.Emacs.Module.Raw.Env.TH (wrapEmacsFunc, Safety(..)) where
 
 import Control.Monad.IO.Class
 import Data.Bifunctor
-import Data.List (foldl')
+import Data.List qualified as L
 import Foreign.Ptr as Foreign
 import Language.Haskell.TH
 
@@ -65,7 +65,7 @@ wrapEmacsFunc name safety peekExpr rawFuncType = do
         funPtrVar <- newName "funPtr"
         [e|liftIO|] `appE` doE
           [ bindS (varP funPtrVar) $ peekExpr `appE` ([e| Env.toPtr |] `appE` varE envArg)
-          , noBindS $ foldl' appE (varE foreignFuncName) (map varE $ funPtrVar : envArg : otherArgs)
+          , noBindS $ L.foldl' appE (varE foreignFuncName) (map varE $ funPtrVar : envArg : otherArgs)
           ]
   m    <- newName "m"
   ret' <- case ret of

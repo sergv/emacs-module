@@ -33,6 +33,7 @@ tested-with:
   , GHC == 9.4.7
   , GHC == 9.6.3
   , GHC == 9.8.1
+  , GHC == 9.10.1
 
 extra-source-files:
   cbits/emacs-module.h
@@ -44,7 +45,8 @@ extra-source-files:
 build-type:
   Simple
 
-homepage: https://github.com/sergv/emacs-module
+homepage:
+  https://github.com/sergv/emacs-module
 
 source-repository head
   type: git
@@ -143,10 +145,11 @@ library
     , bytestring
     , deepseq
     , exceptions
-    , filepath >= 1.4.100
+    , filepath >= 1.5
     , monad-control
     , monad-interleave >= 0.2
     , mtl >= 2.3
+    , os-string
     , primitive
     , prettyprinter >= 1.7
     , prettyprinter-combinators

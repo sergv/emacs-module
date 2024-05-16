@@ -38,7 +38,7 @@ tested-with:
 extra-source-files:
   cbits/emacs-module.h
 
-extra-source-files:
+extra-doc-files:
   Changelog.md
   Readme.md
 

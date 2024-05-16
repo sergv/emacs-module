@@ -5,6 +5,7 @@ packages:
 constraints:
   , emacs-module +assertions +module-assertions
   , text -simdutf
+  , prettyprinter-combinators -enummapset
 
 package emacs-module
   ghc-options: -Werror

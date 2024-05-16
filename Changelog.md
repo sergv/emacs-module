@@ -1,3 +1,7 @@
+# 0.2.1.1
+
+- Fix build with GHC 9.10.1
+
 # 0.2.1
 
 - Expose `make_unibyte_string` as `makeBinaryString`

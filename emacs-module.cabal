@@ -3,7 +3,7 @@ cabal-version: 3.0
 name:
   emacs-module
 version:
-  0.2.1
+  0.2.1.1
 category: Foreign, Foreign binding
 
 synopsis:

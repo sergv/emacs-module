@@ -41,12 +41,11 @@ jobs:
         cabal-update: true
 
     - uses: actions/cache@v4
-      name: Cache cabal stuff
+      name: Cache cabal store
       with:
-        path: |
-          ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
-          dist-newstyle
-        key: ${{ runner.os }}-${{ matrix.ghc }}
+        path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
+        key: ${{ runner.os }}-${{ matrix.ghc }}-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-${{ matrix.ghc }}-
 
     - name: Versions
       run: |

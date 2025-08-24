@@ -21,17 +21,18 @@ jobs:
           - "9.6"
           - "9.8"
           - "9.10"
+          - "9.12"
         include:
           - os: macOS-latest
-            ghc: "9.10"
+            ghc: "9.12"
           - os: windows-latest
-            ghc: "9.10"
+            ghc: "9.12"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: jcs090218/setup-emacs@master
       with:
-        version: "28.2"
+        version: "29.4"
 
     - uses: haskell-actions/setup@v2
       id: setup-haskell-cabal

@@ -3,7 +3,7 @@ cabal-version: 3.0
 name:
   emacs-module
 version:
-  0.2.1.1
+  0.3
 category: Foreign, Foreign binding
 
 synopsis:
@@ -29,11 +29,12 @@ author:
 maintainer:
   Sergey Vinokurov <serg.foo@gmail.com>
 tested-with:
-  , GHC == 9.2.8
-  , GHC == 9.4.7
-  , GHC == 9.6.3
-  , GHC == 9.8.1
-  , GHC == 9.10.1
+  , GHC == 9.2
+  , GHC == 9.4
+  , GHC == 9.6
+  , GHC == 9.8
+  , GHC == 9.10
+  , GHC == 9.12
 
 extra-source-files:
   cbits/emacs-module.h

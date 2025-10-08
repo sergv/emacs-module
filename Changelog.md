@@ -1,3 +1,7 @@
+# 0.3
+
+- Add `extractByteString` function to the `EmacsMonad` class
+
 # 0.2.1.1
 
 - Fix build with GHC 9.10.1

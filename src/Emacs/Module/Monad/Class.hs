@@ -171,6 +171,9 @@ class
   -- | Extract string contents from an Emacs value as utf8-encoded short bytestring.
   extractShortByteString :: WithCallStack => v s -> m s BSS.ShortByteString
 
+  -- | Extract string contents from an Emacs value as bytestring.
+  extractByteString :: WithCallStack => v s -> m s BS.ByteString
+
   -- | Convert a utf8-encoded ByteString into an Emacs value.
   makeString :: WithCallStack => BS.ByteString -> m s (v s)
 

@@ -22,6 +22,7 @@ module Emacs.Module.Monad.Common
   , nonLocalExitSignal
   , extractText
   , extractShortByteString
+  , extractByteString
   , checkNonLocalExitSignal
   , checkNonLocalExitFull
   , extractSignalInfo
@@ -30,6 +31,8 @@ module Emacs.Module.Monad.Common
 
 import Control.Exception
 import Control.Monad.Primitive
+import Data.ByteString qualified as BS
+import Data.ByteString.Internal qualified as BSI
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as SBS
 import Data.Text (Text)
@@ -42,12 +45,12 @@ import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import GHC.Exts
+import GHC.ForeignPtr (ForeignPtr(..), ForeignPtrContents(PlainPtr))
 import GHC.IO
 import GHC.Stack (CallStack, callStack)
 import Prettyprinter
 
 #ifdef ASSERTIONS
-import Data.ByteString.Internal qualified as BSI
 import Data.Text.Encoding qualified as TE
 import Foreign.ForeignPtr qualified as Foreign
 #endif
@@ -195,7 +198,8 @@ extractText cache env nls x =
       -- Should subtract 1 from size to avoid NULL terminator at the end.
       ptr <- Foreign.newForeignPtr_ (Ptr (mutableByteArrayContents# mbarr#))
       evaluate $ TE.decodeUtf8 $ BSI.BS ptr (I# (size# -# 1#))
-#else
+#endif
+#ifndef ASSERTIONS
     IO $ \s1 ->
       case unsafeFreezeByteArray# mbarr# s1 of
         (# s2, barr #) ->
@@ -220,6 +224,22 @@ extractShortByteString cache env nls x =
           case unsafeFreezeByteArray# mbarr# s4 of
             (# s5, barr #) ->
               (# s5, SBS.SBS barr #)
+
+{-# INLINE extractByteString #-}
+extractByteString
+  :: WithCallStack
+  => BuilderCache (RawValue a)
+  -> Env
+  -> NonLocalState
+  -> RawValue p
+  -> IO (EmacsRes EmacsSignal Void BS.ByteString)
+extractByteString cache env nls x =
+  extractStringWith cache env nls x $ \size# mbarr# -> evaluate $ BSI.BS
+    (ForeignPtr
+      (mutableByteArrayContents# mbarr#)
+      (PlainPtr mbarr#))
+    -- Should subtract 1 from size to avoid NULL terminator at the end.
+    (I# (size# -# 1#))
 
 {-# INLINE checkNonLocalExitSignal #-}
 checkNonLocalExitSignal

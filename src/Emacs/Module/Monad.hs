@@ -331,6 +331,13 @@ instance MonadEmacs EmacsM Value where
       $   handleResultNoThrow
       =<< Common.extractShortByteString (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
 
+  extractByteString :: WithCallStack => Value s -> EmacsM s BS.ByteString
+  extractByteString x = EmacsM $ do
+    Environment{eEnv, eNonLocalState, eArgsCache} <- ask
+    liftBase
+      $   handleResultNoThrow
+      =<< Common.extractByteString (coerceBuilderCache eArgsCache) eEnv eNonLocalState (getRawValue x)
+
   makeString :: WithCallStack => BS.ByteString -> EmacsM s (Value s)
   makeString x = withEnv $ \env ->
     BSU.unsafeUseAsCStringLen x $ \(pStr, len) ->

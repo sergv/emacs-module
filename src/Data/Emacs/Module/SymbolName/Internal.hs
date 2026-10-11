@@ -90,7 +90,7 @@ mkSymbolNameCache = go
   where
     go :: SymbolName -> IO (IORef (Env -> IO (RawValue 'Pinned)))
     go !name =
-      unsafeFixIO $ \ ref ->
+      unsafeFixIO $ \ref ->
         newIORef $ \env -> do
           !global <- Raw.makeGlobalRef env =<< reifySymbolRaw env name
           writeIORef ref $ \_env -> pure global

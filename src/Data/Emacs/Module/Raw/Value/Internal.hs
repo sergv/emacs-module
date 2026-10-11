@@ -34,7 +34,7 @@ import GHC.Generics (Generic)
 import Prettyprinter (Pretty(..))
 
 data Pinning
-  -- | Tag for global values are independent of environment ('Env') that produced it.
+  -- | Tag for global values that are independent of environment ('Env') that produced it.
   --
   -- Can be used to e.g. cache values that are expensive to compute from scratch.
   = Pinned

@@ -50,10 +50,6 @@ class
   , forall s. PrimMonad (m s)
   ) => MonadEmacs (m :: k -> Type -> Type) (v :: k -> Type) | m -> v where
 
-  -- -- | Emacs value that is managed by the 'm' monad. Will be cleaned up
-  -- -- after 'm' finishes its execution.
-  -- type EmacsRef m :: k -> Type
-
   -- | Make a global reference to a value so that it will persist
   -- across different calls from Emacs into exposed functions.
   makeGlobalRef :: WithCallStack => v s -> m s (RawValue 'Pinned)

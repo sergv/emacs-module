@@ -245,7 +245,6 @@ instance MonadEmacs EmacsM Value where
       =<< (withPtrLenNonNull (coerceBuilderCache eArgsCache) (foldMap (PtrBuilder.storable . getRawValue) args) $ \n args' ->
              Env.funcall eEnv (getRawValue func) (fromIntegral n) args')
 
-
   {-# INLINE funcallPrimitive #-}
   funcallPrimitive
     :: (WithCallStack, Foldable f)

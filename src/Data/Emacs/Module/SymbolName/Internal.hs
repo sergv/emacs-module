@@ -56,7 +56,7 @@ import Data.Emacs.Module.Raw.Value
 import Emacs.Module.Assert
 
 import Data.Emacs.Module.SymbolName.Internal.Type
-import Data.Emacs.Module.SymbolName.Predefined.Funcall
+import Data.Emacs.Module.SymbolName.Predefined.Intern qualified as Sym
 
 -- | Symbols that are known at compile time.
 --
@@ -159,10 +159,10 @@ reifySymbol env sym f g = case sym of
         T.withCStringLen str $ \(ptr, len) -> do
           str' <- emacsAssert (len >= 0) "Symbol text length must be non-negative" $
             Raw.makeString env ptr (fromIntegral len)
-          funcall' <- reifySymbolUnknown env funcall
+          intern' <- reifySymbolUnknown env Sym.intern
           allocaNonNull $ \args -> do
             poke (unNonNullPtr args) str'
-            f <$> Raw.funcallPrimitive env funcall' 1 args
+            f <$> Raw.funcallPrimitive env intern' 1 args
 
   CachedSymbol ref _ ->
     g <$> ((\k -> k env) =<< readIORef ref)

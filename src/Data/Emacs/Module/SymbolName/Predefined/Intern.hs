@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------------
 -- |
--- Module      :  Data.Emacs.Module.SymbolName.Predefined.Funcall
--- Copyright   :  (c) Sergey Vinokurov 2022
+-- Module      :  Data.Emacs.Module.SymbolName.Predefined.Intern
+-- Copyright   :  (c) Sergey Vinokurov 2026
 -- License     :  Apache-2.0 (see LICENSE)
 -- Maintainer  :  serg.foo@gmail.com
 ----------------------------------------------------------------------------
@@ -9,8 +9,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MagicHash #-}
 
-module Data.Emacs.Module.SymbolName.Predefined.Funcall
-  ( funcall
+module Data.Emacs.Module.SymbolName.Predefined.Intern
+  ( intern
   ) where
 
 import Data.IORef
@@ -21,13 +21,13 @@ import Data.Emacs.Module.Raw.Value
 
 import {-# SOURCE #-} Data.Emacs.Module.SymbolName.Internal
 
-funcallSym :: SymbolName
-funcallSym = mkSymbolNameUnsafe "funcall"#
+internSym :: SymbolName
+internSym = mkSymbolNameUnsafe "intern"#
 
-{-# NOINLINE funcallCache #-}
-funcallCache :: IORef (Env -> IO (RawValue 'Pinned))
-funcallCache = unsafePerformIO $ mkSymbolNameCache funcallSym
+{-# NOINLINE internCache #-}
+internCache :: IORef (Env -> IO (RawValue 'Pinned))
+internCache = unsafePerformIO $ mkSymbolNameCache internSym
 
-funcall :: SymbolName
-funcall = mkCachedSymbolName funcallCache funcallSym
+intern :: SymbolName
+intern = mkCachedSymbolName internCache internSym
 

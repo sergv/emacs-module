@@ -120,7 +120,7 @@ library
     Data.Emacs.Module.Runtime
     Data.Emacs.Module.SymbolName
     Data.Emacs.Module.SymbolName.Predefined
-    Data.Emacs.Module.SymbolName.Predefined.Funcall
+    Data.Emacs.Module.SymbolName.Predefined.Intern
     Data.Emacs.Module.SymbolName.TH
     Data.Emacs.Module.Value
     Emacs.Module

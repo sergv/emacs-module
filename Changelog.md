@@ -1,3 +1,10 @@
+# 0.4
+
+- Breaking change: `Data.Emacs.Module.SymbolName.TH.cacheSym` second
+  argument changed its type `Maybe String` -> `Maybe`, semantics stayed the same
+
+- Fix interning of non-ASCII symbols
+
 # 0.3
 
 - Add `extractByteString` function to the `EmacsMonad` class

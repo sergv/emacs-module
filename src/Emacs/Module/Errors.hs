@@ -47,7 +47,6 @@ import Prettyprinter.Combinators hiding (render, ppCallStack)
 import Prettyprinter.Render.Text as PP
 
 import Data.Emacs.Module.Env qualified as Raw
-import Data.Emacs.Module.GetRawValue
 import Data.Emacs.Module.NonNullPtr
 import Data.Emacs.Module.Raw.Env.Internal (Env)
 import Data.Emacs.Module.Raw.Value
@@ -238,10 +237,10 @@ reportAllErrorsToEmacs
   -> IO a -- ^ Result to return on error.
   -> IO a
   -> IO a
-reportAllErrorsToEmacs env resultOnErr x
+reportAllErrorsToEmacs env resultOnErr
   = Exception.handle (\e -> report formatSomeException env e *> resultOnErr)
-  $ Exception.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
-  $ Exception.handle (\et -> reportEmacsSignalToEmacs' env et *> resultOnErr) x
+  . Exception.handle (\et -> reportEmacsThrowToEmacs' env et *> resultOnErr)
+  . Exception.handle (\et -> reportEmacsSignalToEmacs' env et *> resultOnErr)
 
 report :: (e -> Text) -> Env -> e -> IO ()
 report format env err = do
@@ -251,7 +250,7 @@ report format env err = do
     str' <- Raw.makeString env str (fromIntegral len)
     alloca $ \argsPtr -> do
       poke argsPtr str'
-      errData <- Raw.funcallPrimitive env (getRawValue listSym) 1 (mkNonNullPtr argsPtr)
+      errData <- Raw.funcallPrimitive env listSym 1 (mkNonNullPtr argsPtr)
       -- The 'nonLocalExitSignal' function does not overwrite pending
       -- signals, so it's ok to use it here without checking whether an
       -- error is already going on.

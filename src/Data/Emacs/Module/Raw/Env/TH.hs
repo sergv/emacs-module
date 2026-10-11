@@ -30,7 +30,8 @@ decomposeFunctionType = go []
 
 #if MIN_VERSION_template_haskell(2, 17, 0)
 unwrapForall :: Type -> (Maybe ([TyVarBndr Specificity], Cxt), Type)
-#else
+#endif
+#if !MIN_VERSION_template_haskell(2, 17, 0)
 unwrapForall :: Type -> (Maybe ([TyVarBndr], Cxt), Type)
 #endif
 unwrapForall (ForallT bs c t) = (Just (bs, c), t)
@@ -38,7 +39,8 @@ unwrapForall t                = (Nothing, t)
 
 #if MIN_VERSION_template_haskell(2, 17, 0)
 wrapForall :: Maybe ([TyVarBndr Specificity], Cxt) -> Type -> Type
-#else
+#endif
+#if !MIN_VERSION_template_haskell(2, 17, 0)
 wrapForall :: Maybe ([TyVarBndr], Cxt) -> Type -> Type
 #endif
 wrapForall Nothing        = id

@@ -154,15 +154,15 @@ reifySymbol env sym f g = case sym of
     -- If it's only ASCII then can run FFI intern, otherwise have to go via funcall
     -- TODO: cache this check
     | T.all (\c -> ord c < 128) str ->
-      f <$> T.withCString str (Raw.intern env)
+        f <$> T.withCString str (Raw.intern env)
     | otherwise                    ->
-      T.withCStringLen str $ \(ptr, len) -> do
-        str' <- emacsAssert (len >= 0) "Symbol text length must be non-negative" $
-          Raw.makeString env ptr (fromIntegral len)
-        funcall' <- reifySymbolUnknown env funcall
-        allocaNonNull $ \args -> do
-          poke (unNonNullPtr args) str'
-          f <$> Raw.funcallPrimitive env funcall' 1 args
+        T.withCStringLen str $ \(ptr, len) -> do
+          str' <- emacsAssert (len >= 0) "Symbol text length must be non-negative" $
+            Raw.makeString env ptr (fromIntegral len)
+          funcall' <- reifySymbolUnknown env funcall
+          allocaNonNull $ \args -> do
+            poke (unNonNullPtr args) str'
+            f <$> Raw.funcallPrimitive env funcall' 1 args
 
   CachedSymbol ref _ ->
     g <$> ((\k -> k env) =<< readIORef ref)

@@ -136,6 +136,7 @@ library
     Data.Emacs.Module.Raw.Value
     Data.Emacs.Module.Raw.Value.Internal
     Data.Emacs.Module.SymbolName.Internal
+    Data.Emacs.Module.SymbolName.Internal.Type
     Data.Emacs.Module.Value.Internal
     Emacs.Module.Monad.Common
     Foreign.Ptr.Builder

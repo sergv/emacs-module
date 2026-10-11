@@ -18,7 +18,7 @@ import System.IO.Unsafe
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
 
-import Data.Emacs.Module.SymbolName.Internal
+import {-# SOURCE #-} Data.Emacs.Module.SymbolName.Internal
 
 funcallSym :: SymbolName
 funcallSym = mkSymbolNameString "funcall"

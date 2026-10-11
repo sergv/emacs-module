@@ -12,7 +12,7 @@ import Data.IORef
 import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
 
-data SymbolName
+import Data.Emacs.Module.SymbolName.Internal.Type
 
 mkSymbolNameCache :: SymbolName -> IO (IORef (Env -> IO (RawValue 'Pinned)))
 

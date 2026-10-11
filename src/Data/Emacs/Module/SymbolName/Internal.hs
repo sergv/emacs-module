@@ -13,6 +13,8 @@
 
 {-# OPTIONS_HADDOCK not-home #-}
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Data.Emacs.Module.SymbolName.Internal
   ( Static(..)
   , Dynamic(..)
@@ -53,6 +55,7 @@ import Data.Emacs.Module.Raw.Env.Internal
 import Data.Emacs.Module.Raw.Value
 import Emacs.Module.Assert
 
+import Data.Emacs.Module.SymbolName.Internal.Type
 import Data.Emacs.Module.SymbolName.Predefined.Funcall
 
 -- | Symbols that are known at compile time.
@@ -64,12 +67,6 @@ newtype Static = Static { unStatic :: Ptr CChar }
 
 newtype Dynamic = Dynamic { unDynamic :: Text }
   deriving (Eq, Ord, Show, Pretty)
-
-data SymbolName
-  = StaticSymbol  {-# UNPACK #-} !(Ptr CChar)
-  | DynamicSymbol {-# UNPACK #-} !Text
-  | CachedSymbol  (IORef (Env -> IO (RawValue 'Pinned))) SymbolName
-  deriving (Eq)
 
 instance Show SymbolName where
   show = \case

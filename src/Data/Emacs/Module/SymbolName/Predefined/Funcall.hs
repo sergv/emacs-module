@@ -7,6 +7,7 @@
 ----------------------------------------------------------------------------
 
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MagicHash #-}
 
 module Data.Emacs.Module.SymbolName.Predefined.Funcall
   ( funcall
@@ -21,7 +22,7 @@ import Data.Emacs.Module.Raw.Value
 import {-# SOURCE #-} Data.Emacs.Module.SymbolName.Internal
 
 funcallSym :: SymbolName
-funcallSym = mkSymbolNameString "funcall"
+funcallSym = mkSymbolNameUnsafe "funcall"#
 
 {-# NOINLINE funcallCache #-}
 funcallCache :: IORef (Env -> IO (RawValue 'Pinned))
